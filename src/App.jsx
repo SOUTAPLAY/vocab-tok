@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Moon, Sun, Clock, Sparkles, BookOpen, Layers } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, BookOpen, Layers, Palette, Check } from 'lucide-react';
 
-// --- サンプルデータ (変更なし) ---
+// --- サンプルデータ ---
 const INITIAL_WORDS = [
   { id: 1, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
   { id: 2, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
@@ -14,17 +14,63 @@ const INITIAL_WORDS = [
   { id: 8, en: "implement", pos: "動詞", ja: "実行する、履行する", exEn: "It is difficult to implement the new rules.", exJa: "新しい規則を実行するのは難しい。" },
   { id: 9, en: "perspective", pos: "名詞", ja: "観点、見通し", exEn: "Try to see things from my perspective.", exJa: "私の観点から物事を見るようにしてほしい。" },
   { id: 10, en: "revenue", pos: "名詞", ja: "収益、歳入", exEn: "The company's revenue increased by 20%.", exJa: "その会社の収益は20%増加した。" },
-  { id: 11, en: "apprentice", pos: "名詞", ja: "実習生、見習い", exEn: "He started as an apprentice carpenter.", exJa: "彼は大工の見習いとして始めた。" },
-  { id: 12, en: "negotiation", pos: "名詞", ja: "交渉", exEn: "The negotiations reached a deadlock.", exJa: "交渉は行き詰まった。" },
-  { id: 13, en: "preliminary", pos: "形容詞", ja: "予備の、準備の", exEn: "This is just a preliminary sketch.", exJa: "これはほんの予備のスケッチだ。" },
-  { id: 14, en: "soar", pos: "動詞", ja: "急上昇する", exEn: "Temperatures will soar over the weekend.", exJa: "週末にかけて気温が急上昇するだろう。" },
-  { id: 15, en: "boost", pos: "動詞", ja: "促進する、高める", exEn: "We need to boost our sales.", exJa: "私たちは売上を伸ばす必要がある。" },
-  { id: 16, en: "outcome", pos: "名詞", ja: "結果、成果", exEn: "We are waiting for the final outcome.", exJa: "私たちは最終的な結果を待っている。" },
-  { id: 17, en: "conservative", pos: "形容詞", ja: "保守的な、控えめな", exEn: "He has conservative views on politics.", exJa: "彼は政治に対して保守的な考えを持っている。" },
-  { id: 18, en: "distinguish", pos: "動詞", ja: "区別する", exEn: "It's hard to distinguish the twins.", exJa: "その双子を区別するのは難しい。" },
-  { id: 19, en: "exclusively", pos: "副詞", ja: "独占的に、もっぱら", exEn: "This offer is available exclusively online.", exJa: "このオファーはオンライン限定です。" },
-  { id: 20, en: "prohibit", pos: "動詞", ja: "禁止する", exEn: "Smoking is prohibited in this area.", exJa: "このエリアでの喫煙は禁止されています。" },
 ];
+
+// --- テーマ定義 ---
+const THEMES = {
+  stylish: {
+    id: 'stylish',
+    label: 'Midnight Blur',
+    bgClass: 'bg-slate-950',
+    textMain: 'text-white',
+    textSub: 'text-slate-400',
+    accent: 'text-indigo-400',
+    badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
+    cardBorder: 'border-slate-900',
+    buttonBg: 'bg-slate-800/40',
+    isDark: true,
+    hasEffects: true, // グラデーションやブラーを有効化
+  },
+  gray: {
+    id: 'gray',
+    label: 'Focus Gray',
+    bgClass: 'bg-[#3c3c3c]',
+    textMain: 'text-white',
+    textSub: 'text-gray-300',
+    accent: 'text-gray-200',
+    badge: 'bg-transparent text-gray-300 border-gray-400',
+    cardBorder: 'border-gray-600',
+    buttonBg: 'bg-black/20',
+    isDark: true,
+    hasEffects: false,
+  },
+  black: {
+    id: 'black',
+    label: 'OLED Black',
+    bgClass: 'bg-black',
+    textMain: 'text-white',
+    textSub: 'text-neutral-500',
+    accent: 'text-neutral-300',
+    badge: 'bg-neutral-900 text-white border-neutral-800',
+    cardBorder: 'border-neutral-900',
+    buttonBg: 'bg-neutral-900',
+    isDark: true,
+    hasEffects: false,
+  },
+  white: {
+    id: 'white',
+    label: 'Polar White',
+    bgClass: 'bg-slate-50',
+    textMain: 'text-slate-900',
+    textSub: 'text-slate-500',
+    accent: 'text-indigo-600',
+    badge: 'bg-white text-indigo-600 border-indigo-200 shadow-sm',
+    cardBorder: 'border-slate-200',
+    buttonBg: 'bg-white shadow-md border border-slate-100',
+    isDark: false,
+    hasEffects: false,
+  },
+};
 
 // --- ユーティリティ ---
 const shuffleArray = (array) => {
@@ -39,6 +85,9 @@ const shuffleArray = (array) => {
 // --- 設定モーダル ---
 const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
   if (!isOpen) return null;
+  
+  // 現在のテーマ設定を取得
+  const currentTheme = THEMES[settings.theme] || THEMES.stylish;
 
   return (
     <motion.div 
@@ -48,20 +97,50 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
     >
       <motion.div 
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-        className="w-full max-w-sm rounded-lg p-6 shadow-2xl bg-[#3c3c3c] text-white border border-gray-600"
+        className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl overflow-hidden border ${currentTheme.isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200'}`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Settings size={20} /> Settings
           </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/10 transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        {/* スピード調整 */}
+        {/* テーマ選択セクション */}
         <div className="mb-8">
+          <label className="flex items-center gap-2 font-medium mb-3">
+            <Palette size={16} /> Theme Style
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.values(THEMES).map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => updateSettings({ theme: theme.id })}
+                className={`relative p-3 rounded-xl border text-left transition-all ${
+                  settings.theme === theme.id 
+                    ? 'ring-2 ring-indigo-500 border-transparent' 
+                    : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+                style={{ backgroundColor: theme.id === 'white' ? '#f8fafc' : (theme.id === 'gray' ? '#3c3c3c' : (theme.id === 'black' ? '#000' : '#0f172a')) }}
+              >
+                <span className={`text-sm font-bold block mb-1 ${theme.isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {theme.label}
+                </span>
+                {settings.theme === theme.id && (
+                  <div className="absolute top-2 right-2 bg-indigo-500 rounded-full p-0.5">
+                    <Check size={12} className="text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* スピード調整 */}
+        <div>
           <label className="flex justify-between items-center mb-2 font-medium">
             <span className="flex items-center gap-2"><Clock size={16} /> Reveal Speed</span>
             <span className="text-sm opacity-70">{settings.revealSpeed}s</span>
@@ -70,7 +149,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
             type="range" min="0" max="3.0" step="0.1"
             value={settings.revealSpeed}
             onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })}
-            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-white"
+            className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
           />
           <div className="flex justify-between text-xs opacity-50 mt-1">
             <span>Fast (0s)</span>
@@ -82,50 +161,47 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
   );
 };
 
-// --- 単語カードコンポーネント (シンプル化) ---
+// --- 単語カードコンポーネント ---
 const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
-  const { revealSpeed } = settings;
-  // ご指定の色 #3c3c3c を使用
-  const bgColor = 'bg-[#3c3c3c]';
-  const textColor = 'text-white';
-  const subTextColor = 'text-gray-300';
+  const { revealSpeed, theme } = settings;
+  const t = THEMES[theme] || THEMES.stylish;
 
   const revealVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { 
-        delay: revealSpeed,
-        duration: 0.3
-      }
+      transition: { delay: revealSpeed, duration: 0.4 }
     }
   };
 
   return (
-    <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center ${bgColor} border-b border-gray-700`}>
+    <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center transition-colors duration-500 ${t.bgClass} border-b ${t.cardBorder}`}>
       
+      {/* エフェクトレイヤー (Stylishテーマのみ表示) */}
+      {t.hasEffects && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-900/10 to-black/80" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/20 rounded-full blur-[100px]" />
+          <div className="absolute bottom-1/4 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px]" />
+        </div>
+      )}
+
       {/* メインコンテンツ */}
       <div className="z-10 flex flex-col items-center w-full px-4 text-center">
         
-        {/* 品詞バッジ (シンプルに) */}
+        {/* 品詞バッジ */}
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-          viewport={{ once: true }}
-          className="mb-4 px-3 py-1 text-xs font-bold border border-gray-400 rounded bg-transparent text-gray-300 uppercase tracking-wider"
+          initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 0.3 }} viewport={{ once: true }}
+          className={`mb-4 px-3 py-1 text-xs font-bold border rounded-full uppercase tracking-wider ${t.badge}`}
         >
           {word.pos}
         </motion.div>
 
-        {/* 英単語 (白文字) */}
+        {/* 英単語 */}
         <motion.h2 
-          initial={{ scale: 0.95, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          viewport={{ once: true }}
-          className={`text-6xl md:text-7xl font-medium tracking-tight mb-2 ${textColor}`}
+          initial={{ scale: 0.95, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }} viewport={{ once: true }}
+          className={`text-6xl md:text-7xl font-medium tracking-tight mb-2 ${t.textMain} drop-shadow-lg`}
         >
           {word.en}
         </motion.h2>
@@ -133,30 +209,24 @@ const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
         {/* 日本語訳 */}
         <div className="h-16 flex items-center justify-center">
           <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ amount: 0.5, once: false }}
-            variants={revealVariants}
+            initial="hidden" whileInView="visible" viewport={{ amount: 0.5, once: false }} variants={revealVariants}
           >
-            <p className={`text-2xl font-bold ${textColor}`}>
+            <p className={`text-2xl font-bold ${t.textMain} drop-shadow-md`}>
               {word.ja}
             </p>
           </motion.div>
         </div>
 
-        {/* 例文セクション (装飾なし) */}
+        {/* 例文セクション */}
         <div className="absolute bottom-24 w-full px-6 max-w-md">
            <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ amount: 0.5, once: false }}
-            variants={revealVariants}
-            className="p-4 rounded border border-gray-600 bg-black/20"
+            initial="hidden" whileInView="visible" viewport={{ amount: 0.5, once: false }} variants={revealVariants}
+            className={`p-4 rounded-xl border backdrop-blur-sm ${t.isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
           >
-            <p className={`text-lg font-medium leading-snug mb-2 ${textColor}`}>
+            <p className={`text-lg font-medium leading-snug mb-2 ${t.textMain}`}>
               "{word.exEn}"
             </p>
-            <p className={`text-sm ${subTextColor}`}>
+            <p className={`text-sm ${t.textSub}`}>
               {word.exJa}
             </p>
           </motion.div>
@@ -169,42 +239,39 @@ const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
           onClick={() => onToggleSave(word.id)}
           className="group flex flex-col items-center gap-1 cursor-pointer"
         >
-          <div className={`p-3 rounded-full transition-all duration-200 ${
-            isSaved ? 'bg-white/10' : 'bg-transparent'
-          }`}>
+          <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} ${isSaved ? 'ring-2 ring-rose-500 bg-rose-500/10' : ''}`}>
             <Heart 
-              size={32} 
-              className={`transition-all duration-200 ${isSaved ? 'fill-white text-white' : 'text-gray-400'}`} 
+              size={28} 
+              className={`transition-all duration-300 ${isSaved ? 'fill-rose-500 text-rose-500 scale-110' : (t.isDark ? 'text-white' : 'text-slate-700')}`} 
             />
           </div>
-          <span className="text-[10px] font-bold text-gray-400">Save</span>
+          <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Save</span>
         </button>
       </div>
     </div>
   );
 };
 
-// --- タブヘッダー & 設定トリガー ---
-const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings }) => {
+// --- ヘッダー ---
+const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings, themeKey }) => {
+  const t = THEMES[themeKey] || THEMES.stylish;
+  
   return (
     <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 flex justify-between items-start pointer-events-none">
-      
-      {/* 左上: 設定ボタン */}
       <button 
         onClick={onOpenSettings}
-        className="pointer-events-auto p-3 rounded-full bg-[#3c3c3c] border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-all shadow-lg"
+        className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}
       >
         <Settings size={20} />
       </button>
 
-      {/* 中央: タブ切り替え */}
-      <div className="pointer-events-auto flex items-center bg-[#3c3c3c] rounded-full p-1 border border-gray-600 shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6">
+      <div className={`pointer-events-auto flex items-center backdrop-blur-md rounded-full p-1 border shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6 ${t.buttonBg} ${t.isDark ? 'border-white/10' : 'border-black/5'}`}>
         <button
           onClick={() => onTabChange('all')}
           className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'all' 
-              ? 'bg-gray-200 text-[#3c3c3c]' 
-              : 'text-gray-400 hover:text-white'
+              ? (t.isDark ? 'bg-white/20 text-white' : 'bg-black/10 text-slate-900')
+              : (t.isDark ? 'text-slate-400' : 'text-slate-500')
           }`}
         >
           <Layers size={14} /> All
@@ -213,15 +280,14 @@ const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings }) => {
           onClick={() => onTabChange('saved')}
           className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'saved' 
-              ? 'bg-gray-200 text-[#3c3c3c]' 
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-rose-500 text-white shadow-md' 
+              : (t.isDark ? 'text-slate-400' : 'text-slate-500')
           }`}
         >
-          <Heart size={14} className={activeTab === 'saved' ? 'fill-[#3c3c3c]' : ''} />
+          <Heart size={14} className={activeTab === 'saved' ? 'fill-white' : ''} />
           {savedCount > 0 && <span className="opacity-90">{savedCount}</span>}
         </button>
       </div>
-
       <div className="w-10"></div>
     </div>
   );
@@ -235,10 +301,10 @@ const App = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  // 設定 (ダークモード切り替えは廃止)
+  // 初期設定 (デフォルトテーマは 'stylish')
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('appSettings');
-    return saved ? JSON.parse(saved) : { revealSpeed: 0.5 };
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish' };
   });
 
   useEffect(() => {
@@ -272,15 +338,17 @@ const App = () => {
     return activeTab === 'saved' ? allWords.filter(w => savedIds.includes(w.id)) : allWords;
   }, [activeTab, allWords, savedIds]);
 
+  const currentTheme = THEMES[settings.theme] || THEMES.stylish;
+
   return (
-    // 背景色を指定色 #3c3c3c に固定
-    <div className="relative w-full h-[100dvh] font-sans overflow-hidden bg-[#3c3c3c] text-white">
+    <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${currentTheme.bgClass}`}>
       
       <Header 
         activeTab={activeTab} 
         onTabChange={handleTabChange} 
         savedCount={savedIds.length}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        themeKey={settings.theme}
       />
 
       <div 
@@ -299,7 +367,7 @@ const App = () => {
                 settings={settings}
               />
             ))}
-            <div className="h-[30vh] w-full snap-start flex items-center justify-center bg-[#3c3c3c] text-gray-500 border-t border-gray-700">
+            <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}>
               <div className="flex flex-col items-center gap-2">
                 <Sparkles size={20} />
                 <p className="text-xs font-medium uppercase tracking-widest">End of list</p>
@@ -307,12 +375,12 @@ const App = () => {
             </div>
           </>
         ) : (
-          <div className="h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 bg-[#3c3c3c] text-white">
-            <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6 bg-white/10">
-              <BookOpen size={40} className="text-gray-400" />
+          <div className={`h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 ${currentTheme.bgClass} ${currentTheme.textMain}`}>
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${currentTheme.buttonBg}`}>
+              <BookOpen size={40} className="opacity-50" />
             </div>
             <h3 className="text-2xl font-bold mb-2">No saved words</h3>
-            <button onClick={() => handleTabChange('all')} className="mt-4 text-gray-300 hover:text-white underline decoration-gray-500">Back to All Words</button>
+            <button onClick={() => handleTabChange('all')} className="mt-4 opacity-70 hover:opacity-100 underline">Back to All Words</button>
           </div>
         )}
       </div>
