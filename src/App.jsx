@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Settings, X, Moon, Sun, Clock, Sparkles, BookOpen, Layers } from 'lucide-react';
 
-// --- サンプルデータ (形式更新) ---
+// --- サンプルデータ ---
 const INITIAL_WORDS = [
   { id: 1, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
   { id: 2, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
@@ -60,7 +60,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
           </button>
         </div>
 
-        {/* 1. スピード調整 */}
+        {/* スピード調整 */}
         <div className="mb-8">
           <label className="flex justify-between items-center mb-2 font-medium">
             <span className="flex items-center gap-2"><Clock size={16} /> Reveal Speed</span>
@@ -78,7 +78,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
           </div>
         </div>
 
-        {/* 2. ダークモード切り替え */}
+        {/* ダークモード切り替え */}
         <div className="flex justify-between items-center p-4 rounded-xl bg-black/5 dark:bg-white/5">
           <div className="flex items-center gap-3">
             {settings.darkMode ? <Moon size={20} className="text-indigo-400" /> : <Sun size={20} className="text-orange-400" />}
@@ -96,11 +96,25 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
   );
 };
 
-// --- 単語カードコンポーネント ---
-const WordCard = ({ word, isSaved, onToggleSave, isActive, settings }) => {
+// --- 単語カードコンポーネント (大幅修正) ---
+const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
   const { darkMode, revealSpeed } = settings;
   const textColor = darkMode ? 'text-white' : 'text-slate-900';
   const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
+
+  // アニメーション設定：amount: 0.5 で「半分見えたら開始」、once: false で「何度でも再生」
+  const revealVariants = {
+    hidden: { opacity: 0, filter: "blur(5px)", y: 5 },
+    visible: { 
+      opacity: 1, 
+      filter: "blur(0px)", 
+      y: 0,
+      transition: { 
+        delay: revealSpeed, // ここで設定した秒数待つ
+        duration: 0.5 
+      }
+    }
+  };
 
   return (
     <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
@@ -112,24 +126,15 @@ const WordCard = ({ word, isSaved, onToggleSave, isActive, settings }) => {
       </div>
 
       {/* メインコンテンツ */}
-      <div className="z-10 flex flex-col items-center w-full px-6 text-center">
+      <div className="z-10 flex flex-col items-center w-full px-4 text-center">
         
-        {/* 英単語 */}
-        <motion.h2 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={isActive ? { scale: 1, opacity: 1 } : {}}
-          transition={{ duration: 0.4 }}
-          className={`text-6xl font-black tracking-tighter mb-2 ${textColor} drop-shadow-xl`}
-        >
-          {word.en}
-        </motion.h2>
-
-        {/* [修正] 品詞バッジ (英単語の直下) */}
+        {/* [修正] 品詞バッジ (上に移動) */}
         <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={isActive ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className={`mb-10 px-3 py-1 text-xs font-bold border rounded-full ${
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          viewport={{ once: true }}
+          className={`mb-4 px-3 py-0.5 text-[10px] font-bold border rounded-full uppercase tracking-wider ${
             darkMode 
               ? 'text-indigo-300 border-indigo-500/30 bg-indigo-950/30' 
               : 'text-indigo-600 border-indigo-200 bg-indigo-50'
@@ -138,30 +143,44 @@ const WordCard = ({ word, isSaved, onToggleSave, isActive, settings }) => {
           {word.pos}
         </motion.div>
 
-        {/* [修正] 日本語訳 (グラデーション廃止・白文字・ドロップシャドウ) */}
-        <div className="h-16 flex items-center justify-center mb-8">
-          <motion.p
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={isActive ? { opacity: 1, filter: "blur(0px)" } : {}}
-            transition={{ delay: revealSpeed, duration: 0.5 }} // 設定値のスピードを使用
-            className={`text-3xl font-bold ${textColor} drop-shadow-md`}
+        {/* [修正] 英単語 (太字を削除し medium に) */}
+        <motion.h2 
+          initial={{ scale: 0.95, opacity: 0 }}
+          whileInView={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          viewport={{ once: true }}
+          className={`text-6xl md:text-7xl font-medium tracking-tight mb-3 ${textColor} drop-shadow-lg`}
+        >
+          {word.en}
+        </motion.h2>
+
+        {/* [修正] 日本語訳 (距離を近づけ、カードごとの独立した遅延アニメーションを適用) */}
+        <div className="h-16 flex items-center justify-center">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ amount: 0.5, once: false }} // 重要: 毎回リセット
+            variants={revealVariants}
           >
-            {word.ja}
-          </motion.p>
+            <p className={`text-2xl font-bold ${textColor} drop-shadow-md`}>
+              {word.ja}
+            </p>
+          </motion.div>
         </div>
 
-        {/* [新規] 例文セクション (画面下部に配置・同時フェードイン) */}
-        <div className="absolute bottom-24 w-full px-8">
+        {/* 例文セクション (画面下部に配置・同じタイミングで表示) */}
+        <div className="absolute bottom-24 w-full px-6 max-w-md">
            <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={isActive ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: revealSpeed, duration: 0.6 }} // 日本語訳と同期
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ amount: 0.5, once: false }} // 重要: 毎回リセット
+            variants={revealVariants} // 日本語訳と同じタイミング設定を使用
             className={`p-4 rounded-xl border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
           >
             <p className={`text-lg font-medium leading-snug mb-2 ${textColor}`}>
               "{word.exEn}"
             </p>
-            <p className={`text-sm ${subTextColor}`}>
+            <p className={`text-xs ${subTextColor}`}>
               {word.exJa}
             </p>
           </motion.div>
@@ -207,9 +226,7 @@ const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings, darkMode }
       </button>
 
       {/* 中央: タブ切り替え */}
-      <div className="pointer-events-auto flex items-center backdrop-blur-md rounded-full p-1 border shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6
-        ${darkMode ? 'bg-slate-800/60 border-white/10' : 'bg-white/90 border-black/5'}"
-      >
+      <div className={`pointer-events-auto flex items-center backdrop-blur-md rounded-full p-1 border shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6 ${darkMode ? 'bg-slate-800/60 border-white/10' : 'bg-white/90 border-black/5'}`}>
         <button
           onClick={() => onTabChange('all')}
           className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
@@ -263,7 +280,6 @@ const App = () => {
     localStorage.setItem('myVocabularySaved', JSON.stringify(savedIds));
   }, [savedIds]);
 
-  // 設定変更時に保存
   const updateSettings = (newSettings) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings };
@@ -307,7 +323,7 @@ const App = () => {
               <WordCard 
                 key={word.id} 
                 word={word} 
-                isActive={true} 
+                // isActive={true} は削除しました。各カード自身で判定します。
                 isSaved={savedIds.includes(word.id)}
                 onToggleSave={toggleSave}
                 settings={settings}
