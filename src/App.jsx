@@ -157,7 +157,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
           {activeTab === 'data' && (
             <div className="space-y-6">
               <div className="space-y-3">
-                <p className="text-xs opacity-60 mb-2">Toggle active source folders.</p>
+                <p className="text-xs opacity-60 mb-2">Select active data sources to display in Main Feed.</p>
                 {sources.map(source => (
                   <div key={source.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${source.active ? (t.isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') : (t.isDark ? 'bg-transparent border-gray-700 opacity-70' : 'bg-transparent border-gray-200 opacity-70')}`}>
                     <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => toggleSourceActive(source.id)}>
@@ -246,11 +246,9 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, pl
   const t = THEMES[themeKey] || THEMES.stylish;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // フィード選択のドロップダウン風メニュー
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const selectTab = (tab) => { onTabChange(tab); setIsMenuOpen(false); };
   
-  // 現在のタブ名表示
   let currentLabel = "Main Feed";
   if (activeTab === 'saved') currentLabel = "Favorites";
   else if (activeTab !== 'all') {
@@ -261,14 +259,11 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, pl
   return (
     <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 flex justify-between items-start pointer-events-none">
       <button onClick={() => openSettings('settings')} className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}><Settings size={20} /></button>
-      
-      {/* プレイリスト切り替えボタン */}
       <div className="pointer-events-auto relative">
         <button onClick={toggleMenu} className={`px-6 py-3 rounded-full font-bold text-sm shadow-xl flex items-center gap-2 backdrop-blur-md border ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}>
           {activeTab === 'all' ? <Layers size={16} /> : (activeTab === 'saved' ? <Heart size={16} className="text-rose-500 fill-rose-500" /> : <ListMusic size={16} className="text-indigo-400" />)}
           {currentLabel}
         </button>
-        
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 rounded-xl shadow-2xl border overflow-hidden flex flex-col ${t.isDark ? 'bg-slate-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-slate-900'}`}>
@@ -282,7 +277,6 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, pl
           )}
         </AnimatePresence>
       </div>
-
       <div className="w-10"></div>
     </div>
   );
@@ -290,13 +284,12 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, pl
 
 // --- アプリ本体 ---
 const App = () => {
-  const [sources, setSources] = useState([]); // インポートしたデータの管理
-  const [playlists, setPlaylists] = useState([]); // ユーザー作成のリスト
+  const [sources, setSources] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
   const [allWords, setAllWords] = useState([]);
   const [savedIds, setSavedIds] = useState([]);
-  const [playlistAssignments, setPlaylistAssignments] = useState({}); // { playlistId: [wordId, ...] }
-  
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'saved' | playlistId
+  const [playlistAssignments, setPlaylistAssignments] = useState({});
+  const [activeTab, setActiveTab] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('settings');
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
@@ -308,20 +301,31 @@ const App = () => {
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
   useEffect(() => {
-    // Sources初期化
+    // Sources
     const savedSources = localStorage.getItem('vocabSources');
     if (savedSources) setSources(JSON.parse(savedSources));
     else { setSources(INITIAL_SOURCES); localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES)); }
     
-    // Playlists初期化
+    // Playlists
     const savedPlaylists = localStorage.getItem('vocabPlaylists');
     if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
     else setPlaylists([]);
 
-    // Words初期化
+    // Words (強制的なID修正)
     const savedWords = localStorage.getItem('myVocabularyData');
-    if (savedWords) setAllWords(JSON.parse(savedWords).map(w => ({...w, sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID})));
-    else { const initial = shuffleArray(INITIAL_WORDS); setAllWords(initial); localStorage.setItem('myVocabularyData', JSON.stringify(initial)); }
+    if (savedWords) {
+      const parsedWords = JSON.parse(savedWords);
+      const fixedWords = parsedWords.map(w => ({
+        ...w, 
+        // 以前の folderId があれば sourceId に変換、なければ 初期ID
+        sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID 
+      }));
+      setAllWords(fixedWords);
+    } else { 
+      const initial = shuffleArray(INITIAL_WORDS); 
+      setAllWords(initial); 
+      localStorage.setItem('myVocabularyData', JSON.stringify(initial)); 
+    }
 
     const savedLikes = localStorage.getItem('myVocabularySaved');
     if (savedLikes) setSavedIds(JSON.parse(savedLikes));
@@ -341,32 +345,25 @@ const App = () => {
   const toggleSave = (id) => setSavedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   const handleTabChange = (tab) => { setActiveTab(tab); if (containerRef.current) containerRef.current.scrollTo({ top: 0 }); };
 
-  // Sources操作
   const toggleSourceActive = (sourceId) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, active: !s.active } : s));
   const handleImportData = (newSourceId, sourceName, newWords) => {
     setSources(prev => [...prev, { id: newSourceId, name: sourceName, active: true }]);
     setAllWords(prev => shuffleArray([...prev, ...newWords]));
   };
 
-  // Playlists操作
   const handleCreatePlaylist = (name) => {
     const newId = generateId();
     setPlaylists(prev => [...prev, { id: newId, name }]);
-    // 作成時にAddSheetから呼ばれた場合、現在の単語を追加
-    if (isAddSheetOpen && currentAddWordId) {
-       handleToggleAssignment(newId, currentAddWordId);
-    }
+    if (isAddSheetOpen && currentAddWordId) handleToggleAssignment(newId, currentAddWordId);
   };
   const handleRenamePlaylist = (id, newName) => setPlaylists(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
   const handleDeletePlaylist = (id) => {
     setPlaylists(prev => prev.filter(p => p.id !== id));
     if (activeTab === id) setActiveTab('all');
-    // assignments削除
     const newAssigns = { ...playlistAssignments };
     delete newAssigns[id];
     setPlaylistAssignments(newAssigns);
   };
-
   const handleToggleAssignment = (playlistId, wordId) => {
     setPlaylistAssignments(prev => {
       const current = prev[playlistId] || [];
@@ -374,21 +371,17 @@ const App = () => {
     });
   };
 
-  // 表示ロジック
   const displayWords = useMemo(() => {
-    // 1. まずActiveなSourceに含まれる単語だけを抽出 (Base Pool)
+    // 1. アクティブなSourceの単語をベースにする
     const activeSourceIds = sources.filter(s => s.active).map(s => s.id);
     const basePool = allWords.filter(w => activeSourceIds.includes(w.sourceId));
 
-    // 2. タブによるフィルタリング
     if (activeTab === 'all') {
       return basePool;
     } else if (activeTab === 'saved') {
       return basePool.filter(w => savedIds.includes(w.id));
     } else {
-      // プレイリスト選択時
       const assignedWordIds = playlistAssignments[activeTab] || [];
-      // プレイリストに入っているが、Sourceが非アクティブな場合は表示しない仕様とする
       return basePool.filter(w => assignedWordIds.includes(w.id));
     }
   }, [activeTab, allWords, sources, savedIds, playlistAssignments]);
@@ -398,34 +391,21 @@ const App = () => {
   return (
     <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${currentTheme.bgClass}`}>
       <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} openSettings={openSettings} themeKey={settings.theme} playlists={playlists} />
-
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
           <>
-            {displayWords.map((word) => (
-              <WordCard 
-                key={word.id} 
-                word={word} 
-                isSaved={savedIds.includes(word.id)} 
-                onToggleSave={toggleSave} 
-                onOpenAddToPlaylist={openAddSheet}
-                settings={settings} 
-              />
-            ))}
-            <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}>
-              <div className="flex flex-col items-center gap-2"><Sparkles size={20} /><p className="text-xs font-medium uppercase tracking-widest">End of list</p></div>
-            </div>
+            {displayWords.map((word) => <WordCard key={word.id} word={word} isSaved={savedIds.includes(word.id)} onToggleSave={toggleSave} onOpenAddToPlaylist={openAddSheet} settings={settings} />)}
+            <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}><div className="flex flex-col items-center gap-2"><Sparkles size={20} /><p className="text-xs font-medium uppercase tracking-widest">End of list</p></div></div>
           </>
         ) : (
           <div className={`h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 ${currentTheme.bgClass} ${currentTheme.textMain}`}>
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${currentTheme.buttonBg}`}><FolderOpen size={40} className="opacity-50" /></div>
-            <h3 className="text-2xl font-bold mb-2">List is empty</h3>
+            <h3 className="text-2xl font-bold mb-2">No active words</h3>
             <p className="text-sm opacity-60 text-center max-w-xs mb-6">Check your data sources or add words to this playlist.</p>
             <button onClick={() => openSettings('data')} className="px-6 py-3 rounded-full bg-indigo-500 text-white font-bold text-sm shadow-lg hover:bg-indigo-600 transition-colors">Manage Data</button>
           </div>
         )}
       </div>
-
       <AnimatePresence>
         {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} onImportData={handleImportData} />}
         {isAddSheetOpen && <AddToPlaylistSheet isOpen={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} playlists={playlists} currentWordId={currentAddWordId} playlistAssignments={playlistAssignments} onToggleAssignment={handleToggleAssignment} onCreatePlaylist={handleCreatePlaylist} themeKey={settings.theme} />}
