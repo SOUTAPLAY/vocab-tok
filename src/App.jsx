@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, BookOpen, Layers, Palette, Check, Upload, FileJson, Copy, AlertCircle, Folder, FolderOpen, CheckSquare, Square, Trash2, Edit2, Save, Plus, ListPlus, FolderPlus } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare } from 'lucide-react';
 
 // --- 初期データ ---
-const INITIAL_FOLDER_ID = 'sample-folder';
-const INITIAL_FOLDERS = [
-  { id: INITIAL_FOLDER_ID, name: 'Sample Words', active: true }
+const INITIAL_SOURCE_ID = 'sample-source';
+const INITIAL_SOURCES = [
+  { id: INITIAL_SOURCE_ID, name: 'Sample Words (Built-in)', active: true }
 ];
 
 const INITIAL_WORDS = [
-  { id: 1, folderId: INITIAL_FOLDER_ID, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
-  { id: 2, folderId: INITIAL_FOLDER_ID, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
-  { id: 3, folderId: INITIAL_FOLDER_ID, en: "mandatory", pos: "形容詞", ja: "義務的な、必須の", exEn: "Attendance at the meeting is mandatory.", exJa: "会議への出席は義務です。" },
-  { id: 4, folderId: INITIAL_FOLDER_ID, en: "subsequent", pos: "形容詞", ja: "その後の、次の", exEn: "Subsequent events proved him wrong.", exJa: "その後の出来事が彼の誤りを証明した。" },
-  { id: 5, folderId: INITIAL_FOLDER_ID, en: "incentive", pos: "名詞", ja: "動機、報奨金", exEn: "There is no incentive to work harder.", exJa: "もっと一生懸命働く動機がない。" },
+  { id: 1, sourceId: INITIAL_SOURCE_ID, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
+  { id: 2, sourceId: INITIAL_SOURCE_ID, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
+  { id: 3, sourceId: INITIAL_SOURCE_ID, en: "mandatory", pos: "形容詞", ja: "義務的な、必須の", exEn: "Attendance at the meeting is mandatory.", exJa: "会議への出席は義務です。" },
+  { id: 4, sourceId: INITIAL_SOURCE_ID, en: "subsequent", pos: "形容詞", ja: "その後の、次の", exEn: "Subsequent events proved him wrong.", exJa: "その後の出来事が彼の誤りを証明した。" },
+  { id: 5, sourceId: INITIAL_SOURCE_ID, en: "incentive", pos: "名詞", ja: "動機、報奨金", exEn: "There is no incentive to work harder.", exJa: "もっと一生懸命働く動機がない。" },
 ];
 
 const THEMES = {
@@ -32,104 +32,63 @@ const shuffleArray = (array) => {
   return newArray;
 };
 const generateId = () => Math.random().toString(36).substr(2, 9);
+const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
 
-// --- プレイリスト選択ボトムシート ---
-const AddToFolderSheet = ({ isOpen, onClose, folders, currentWordId, folderAssignments, onToggleAssignment, onCreateFolder, themeKey }) => {
-  const [newFolderName, setNewFolderName] = useState('');
+// --- プレイリスト追加ボトムシート ---
+const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlistAssignments, onToggleAssignment, onCreatePlaylist, themeKey }) => {
+  const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const t = THEMES[themeKey] || THEMES.stylish;
 
   if (!isOpen) return null;
 
   const handleCreate = () => {
-    if (newFolderName.trim()) {
-      onCreateFolder(newFolderName);
-      setNewFolderName('');
+    if (newPlaylistName.trim()) {
+      onCreatePlaylist(newPlaylistName);
+      setNewPlaylistName('');
       setIsCreating(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-end justify-center pointer-events-none">
-      {/* 背景オーバーレイ */}
-      <motion.div 
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 pointer-events-auto"
-        onClick={onClose}
-      />
-      
-      {/* ボトムシート */}
-      <motion.div 
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className={`w-full max-w-md rounded-t-2xl p-4 pb-8 pointer-events-auto shadow-2xl relative ${t.isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}
-        onClick={e => e.stopPropagation()}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={onClose} />
+      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className={`w-full max-w-md rounded-t-2xl p-4 pb-8 pointer-events-auto shadow-2xl relative ${t.isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`} onClick={e => e.stopPropagation()}>
         <div className="w-12 h-1.5 bg-gray-500/20 rounded-full mx-auto mb-6" />
-        
         <div className="flex justify-between items-center mb-4 px-2">
-          <h3 className="text-lg font-bold">Save to...</h3>
-          <button 
-            onClick={() => setIsCreating(!isCreating)} 
-            className="text-sm font-bold text-indigo-500 flex items-center gap-1 hover:underline"
-          >
-            <Plus size={16} /> New Playlist
-          </button>
+          <h3 className="text-lg font-bold">Add to Playlist</h3>
+          <button onClick={() => setIsCreating(!isCreating)} className="text-sm font-bold text-indigo-500 flex items-center gap-1 hover:underline"><Plus size={16} /> New Playlist</button>
         </div>
-
         {isCreating && (
           <div className="mb-4 flex gap-2 animate-in fade-in slide-in-from-top-2">
-            <input 
-              autoFocus
-              type="text" 
-              placeholder="Enter playlist name..."
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              className={`flex-1 p-3 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}
-            />
-            <button 
-              onClick={handleCreate}
-              className="p-3 bg-indigo-500 text-white rounded-xl font-bold text-sm"
-            >
-              Create
-            </button>
+            <input autoFocus type="text" placeholder="Playlist name..." value={newPlaylistName} onChange={e => setNewPlaylistName(e.target.value)} className={`flex-1 p-3 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`} />
+            <button onClick={handleCreate} className="p-3 bg-indigo-500 text-white rounded-xl font-bold text-sm">Create</button>
           </div>
         )}
-
         <div className="space-y-1 max-h-[50vh] overflow-y-auto">
-          {folders.map(folder => {
-            const isAssigned = (folderAssignments[folder.id] || []).includes(currentWordId);
+          {playlists.length === 0 && !isCreating && <p className="text-center text-sm opacity-50 py-4">No playlists yet. Create one!</p>}
+          {playlists.map(playlist => {
+            const isAssigned = (playlistAssignments[playlist.id] || []).includes(currentWordId);
             return (
-              <div 
-                key={folder.id}
-                onClick={() => onToggleAssignment(folder.id, currentWordId)}
-                className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-colors ${t.isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
-              >
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isAssigned ? 'bg-indigo-500 border-indigo-500' : 'border-gray-400'}`}>
-                  {isAssigned && <Check size={14} className="text-white" />}
-                </div>
-                <div className="flex-1 font-medium">{folder.name}</div>
-                {/* インポートされたフォルダか、手動作成かなどのアイコン区別も可能 */}
-                {folder.id === INITIAL_FOLDER_ID && <span className="text-xs opacity-50 bg-gray-500/20 px-2 py-0.5 rounded">Default</span>}
+              <div key={playlist.id} onClick={() => onToggleAssignment(playlist.id, currentWordId)} className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-colors ${t.isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isAssigned ? 'bg-indigo-500 border-indigo-500' : 'border-gray-400'}`}>{isAssigned && <Check size={14} className="text-white" />}</div>
+                <div className="flex-1 font-medium">{playlist.name}</div>
               </div>
             );
           })}
         </div>
-        
-        <button onClick={onClose} className="w-full mt-6 py-3 rounded-xl font-bold bg-gray-500/10 hover:bg-gray-500/20 transition-colors">
-          Done
-        </button>
+        <button onClick={onClose} className="w-full mt-6 py-3 rounded-xl font-bold bg-gray-500/10 hover:bg-gray-500/20 transition-colors">Done</button>
       </motion.div>
     </div>
   );
 };
 
-// --- 設定モーダル (前のコードと同じだが、簡略化のため一部省略なしで再掲) ---
-const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, toggleFolderActive, onImportData, initialTab, onRenameFolder, onDeleteFolder }) => {
+// --- 設定モーダル ---
+const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, toggleSourceActive, playlists, onRenamePlaylist, onDeletePlaylist, onImportData, initialTab }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'settings');
   const [importStatus, setImportStatus] = useState('');
-  const [newFolderName, setNewFolderName] = useState('');
-  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const fileInputRef = useRef(null);
 
@@ -137,23 +96,23 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
   if (!isOpen) return null;
   const t = THEMES[settings.theme] || THEMES.stylish;
 
-  const startEditing = (folder) => { setEditingFolderId(folder.id); setEditName(folder.name); };
-  const saveEditing = () => { if (editName.trim()) onRenameFolder(editingFolderId, editName); setEditingFolderId(null); };
+  const startEditing = (item) => { setEditingId(item.id); setEditName(item.name); };
+  const saveEditing = () => { if (editName.trim()) onRenamePlaylist(editingId, editName); setEditingId(null); };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    const folderName = newFolderName.trim() || `Imported ${new Date().toLocaleDateString()}`;
+    const sourceName = newSourceName.trim() || `Imported ${new Date().toLocaleDateString()}`;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target.result);
         if (Array.isArray(json)) {
-          const newFolderId = generateId();
-          const wordsToAdd = json.map(w => ({ ...w, id: w.id || generateId(), folderId: newFolderId }));
-          onImportData(newFolderId, folderName, wordsToAdd);
-          setImportStatus(`Success! Added to "${folderName}".`);
-          setNewFolderName('');
+          const newSourceId = generateId();
+          const wordsToAdd = json.map(w => ({ ...w, id: w.id || generateId(), sourceId: newSourceId }));
+          onImportData(newSourceId, sourceName, wordsToAdd);
+          setImportStatus(`Success! Added "${sourceName}".`);
+          setNewSourceName('');
           setTimeout(() => setImportStatus(''), 3000);
         } else { setImportStatus('Error: Invalid JSON format.'); }
       } catch (error) { setImportStatus('Error: Could not parse JSON.'); }
@@ -161,7 +120,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
     reader.readAsText(file);
     event.target.value = '';
   };
-  const copyFormat = () => { navigator.clipboard.writeText(`[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`); setImportStatus('Copied!'); setTimeout(() => setImportStatus(''), 2000); };
+  const copyFormat = () => { navigator.clipboard.writeText(SAMPLE_JSON_FORMAT); setImportStatus('Copied!'); setTimeout(() => setImportStatus(''), 2000); };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -171,9 +130,9 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors"><X size={18} /></button>
         </div>
         <div className="flex border-b border-gray-500/10">
-          {['settings', 'folders', 'import'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
-          ))}
+          <button onClick={() => setActiveTab('settings')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'settings' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Settings</button>
+          <button onClick={() => setActiveTab('data')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'data' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Data Sources</button>
+          <button onClick={() => setActiveTab('playlists')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'playlists' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Playlists</button>
         </div>
         <div className="p-6 overflow-y-auto flex-1">
           {activeTab === 'settings' && (
@@ -195,29 +154,45 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
               </div>
             </div>
           )}
-          {activeTab === 'folders' && (
+          {activeTab === 'data' && (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs opacity-60 mb-2">Toggle active source folders.</p>
+                {sources.map(source => (
+                  <div key={source.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${source.active ? (t.isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') : (t.isDark ? 'bg-transparent border-gray-700 opacity-70' : 'bg-transparent border-gray-200 opacity-70')}`}>
+                    <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => toggleSourceActive(source.id)}>
+                      <button className="flex-shrink-0">{source.active ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}</button>
+                      <span className="font-bold text-sm truncate">{source.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-6 border-t border-gray-500/20 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider opacity-70 flex items-center gap-2"><Database size={12} /> Import New Source</h3>
+                <input type="text" value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} placeholder="Source Name (e.g. TOEIC)" className={`w-full p-3 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${t.isDark ? 'border-gray-700' : 'border-gray-300'}`} />
+                <button onClick={() => fileInputRef.current.click()} className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${t.isDark ? 'bg-white text-slate-900 hover:bg-gray-200' : 'bg-slate-900 text-white hover:bg-slate-700'}`}><Upload size={18} /> Upload JSON</button>
+                <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+                {importStatus && <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}><AlertCircle size={14} /> {importStatus}</div>}
+                <div className="text-[10px] opacity-50 flex items-center justify-between"><span>Format: JSON Array</span><button onClick={copyFormat} className="underline">Copy Sample</button></div>
+              </div>
+            </div>
+          )}
+          {activeTab === 'playlists' && (
             <div className="space-y-4">
-              <p className="text-xs opacity-60 mb-2">Active folders will appear in your feed.</p>
-              {folders.map(folder => (
-                <div key={folder.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${folder.active ? (t.isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') : (t.isDark ? 'bg-transparent border-gray-700 opacity-70' : 'bg-transparent border-gray-200 opacity-70')}`}>
+              <p className="text-xs opacity-60 mb-2">Manage your custom playlists.</p>
+              {playlists.length === 0 && <p className="text-sm opacity-50 italic">No playlists created yet.</p>}
+              {playlists.map(playlist => (
+                <div key={playlist.id} className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3 flex-1 overflow-hidden">
-                    <button onClick={() => toggleFolderActive(folder.id)} className="flex-shrink-0">{folder.active ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}</button>
-                    {editingFolderId === folder.id ? <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-transparent border-b border-indigo-500 text-sm font-bold w-full focus:outline-none" autoFocus /> : <span className="font-bold text-sm truncate" onClick={() => toggleFolderActive(folder.id)}>{folder.name}</span>}
+                    <ListMusic size={18} className="opacity-50" />
+                    {editingId === playlist.id ? <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-transparent border-b border-indigo-500 text-sm font-bold w-full focus:outline-none" autoFocus /> : <span className="font-bold text-sm truncate">{playlist.name}</span>}
                   </div>
                   <div className="flex items-center gap-2 ml-2">
-                    {editingFolderId === folder.id ? <button onClick={saveEditing} className="p-1.5 hover:bg-indigo-500/20 rounded-md text-indigo-500"><Save size={14} /></button> : <button onClick={() => startEditing(folder)} className="p-1.5 hover:bg-gray-500/10 rounded-md opacity-50 hover:opacity-100"><Edit2 size={14} /></button>}
-                    {folders.length > 1 && <button onClick={() => { if(window.confirm('Delete this folder?')) onDeleteFolder(folder.id); }} className="p-1.5 hover:bg-rose-500/20 rounded-md text-rose-500 opacity-50 hover:opacity-100"><Trash2 size={14} /></button>}
+                    {editingId === playlist.id ? <button onClick={saveEditing} className="p-1.5 hover:bg-indigo-500/20 rounded-md text-indigo-500"><Save size={14} /></button> : <button onClick={() => startEditing(playlist)} className="p-1.5 hover:bg-gray-500/10 rounded-md opacity-50 hover:opacity-100"><Edit2 size={14} /></button>}
+                    <button onClick={() => { if(window.confirm('Delete playlist?')) onDeletePlaylist(playlist.id); }} className="p-1.5 hover:bg-rose-500/20 rounded-md text-rose-500 opacity-50 hover:opacity-100"><Trash2 size={14} /></button>
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-          {activeTab === 'import' && (
-            <div className="space-y-6">
-              <div><label className="block text-xs font-bold uppercase tracking-wider opacity-70 mb-2">1. New Playlist Name</label><input type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. TOEIC Part 1" className={`w-full p-3 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${t.isDark ? 'border-gray-700' : 'border-gray-300'}`} /></div>
-              <div><label className="block text-xs font-bold uppercase tracking-wider opacity-70 mb-2">2. Upload JSON</label><input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" /><button onClick={() => fileInputRef.current.click()} className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${t.isDark ? 'bg-white text-slate-900 hover:bg-gray-200' : 'bg-slate-900 text-white hover:bg-slate-700'}`}><Upload size={18} /> Select File</button></div>
-              {importStatus && <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}><AlertCircle size={14} /> {importStatus}</div>}
-              <div className="pt-4 border-t border-gray-500/20"><div className="flex justify-between items-center mb-2"><span className="text-xs font-bold opacity-50">JSON SAMPLE</span><button onClick={copyFormat} className="text-xs text-indigo-400 hover:underline flex items-center gap-1"><Copy size={10} /> Copy</button></div></div>
             </div>
           )}
         </div>
@@ -226,20 +201,15 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
   );
 };
 
-// --- 単語カード (UI拡張) ---
-const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToFolder, settings }) => {
+// --- 単語カード ---
+const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, settings }) => {
   const { revealSpeed, theme } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
 
   return (
     <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center transition-colors duration-500 ${t.bgClass} border-b ${t.cardBorder}`}>
-      {t.hasEffects && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-900/10 to-black/80" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/20 rounded-full blur-[100px]" />
-        </div>
-      )}
+      {t.hasEffects && <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-indigo-900/10 to-black/80" />}
       <div className="z-10 flex flex-col items-center w-full px-4 text-center">
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 0.3 }} viewport={{ once: true }} className={`mb-4 px-3 py-1 text-xs font-bold border rounded-full uppercase tracking-wider ${t.badge}`}>{word.pos}</motion.div>
         <motion.h2 initial={{ scale: 0.95, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }} viewport={{ once: true }} className={`text-6xl md:text-7xl font-medium tracking-tight mb-2 ${t.textMain} drop-shadow-lg`}>{word.en}</motion.h2>
@@ -253,8 +223,6 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToFolder, settings }) 
           </motion.div>
         </div>
       </div>
-      
-      {/* サイドボタン */}
       <div className="absolute right-4 bottom-48 flex flex-col items-center gap-6 z-20">
         <button onClick={() => onToggleSave(word.id)} className="group flex flex-col items-center gap-1 cursor-pointer">
           <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} ${isSaved ? 'ring-2 ring-rose-500 bg-rose-500/10' : ''}`}>
@@ -262,9 +230,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToFolder, settings }) 
           </div>
           <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Like</span>
         </button>
-
-        {/* フォルダ追加ボタン (New!) */}
-        <button onClick={() => onOpenAddToFolder(word.id)} className="group flex flex-col items-center gap-1 cursor-pointer">
+        <button onClick={() => onOpenAddToPlaylist(word.id)} className="group flex flex-col items-center gap-1 cursor-pointer">
           <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} hover:bg-indigo-500/20`}>
             <ListPlus size={28} className={`transition-all duration-300 ${t.isDark ? 'text-white' : 'text-slate-700'}`} />
           </div>
@@ -276,15 +242,47 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToFolder, settings }) 
 };
 
 // --- ヘッダー ---
-const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey }) => {
+const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, playlists }) => {
   const t = THEMES[themeKey] || THEMES.stylish;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // フィード選択のドロップダウン風メニュー
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const selectTab = (tab) => { onTabChange(tab); setIsMenuOpen(false); };
+  
+  // 現在のタブ名表示
+  let currentLabel = "Main Feed";
+  if (activeTab === 'saved') currentLabel = "Favorites";
+  else if (activeTab !== 'all') {
+    const p = playlists.find(p => p.id === activeTab);
+    if (p) currentLabel = p.name;
+  }
+
   return (
     <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 flex justify-between items-start pointer-events-none">
       <button onClick={() => openSettings('settings')} className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}><Settings size={20} /></button>
-      <div className={`pointer-events-auto flex items-center backdrop-blur-md rounded-full p-1 border shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6 ${t.buttonBg} ${t.isDark ? 'border-white/10' : 'border-black/5'}`}>
-        <button onClick={() => onTabChange('all')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'all' ? (t.isDark ? 'bg-white/20 text-white' : 'bg-black/10 text-slate-900') : (t.isDark ? 'text-slate-400' : 'text-slate-500')}`}><Layers size={14} /> Feed</button>
-        <button onClick={() => onTabChange('saved')} className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'saved' ? 'bg-rose-500 text-white shadow-md' : (t.isDark ? 'text-slate-400' : 'text-slate-500')}`}><Heart size={14} className={activeTab === 'saved' ? 'fill-white' : ''} />{savedCount > 0 && <span className="opacity-90">{savedCount}</span>}</button>
+      
+      {/* プレイリスト切り替えボタン */}
+      <div className="pointer-events-auto relative">
+        <button onClick={toggleMenu} className={`px-6 py-3 rounded-full font-bold text-sm shadow-xl flex items-center gap-2 backdrop-blur-md border ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}>
+          {activeTab === 'all' ? <Layers size={16} /> : (activeTab === 'saved' ? <Heart size={16} className="text-rose-500 fill-rose-500" /> : <ListMusic size={16} className="text-indigo-400" />)}
+          {currentLabel}
+        </button>
+        
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 rounded-xl shadow-2xl border overflow-hidden flex flex-col ${t.isDark ? 'bg-slate-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-slate-900'}`}>
+              <button onClick={() => selectTab('all')} className="p-3 text-left hover:bg-indigo-500/10 flex items-center gap-2 text-sm font-bold"><Layers size={14} /> Main Feed</button>
+              <button onClick={() => selectTab('saved')} className="p-3 text-left hover:bg-indigo-500/10 flex items-center gap-2 text-sm font-bold"><Heart size={14} className="text-rose-500" /> Favorites ({savedCount})</button>
+              {playlists.length > 0 && <div className="h-px bg-gray-500/20 mx-2 my-1" />}
+              {playlists.map(p => (
+                <button key={p.id} onClick={() => selectTab(p.id)} className="p-3 text-left hover:bg-indigo-500/10 flex items-center gap-2 text-sm font-medium"><ListMusic size={14} className="opacity-70" /> {p.name}</button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
       <div className="w-10"></div>
     </div>
   );
@@ -292,120 +290,114 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey }) 
 
 // --- アプリ本体 ---
 const App = () => {
-  const [folders, setFolders] = useState([]);
+  const [sources, setSources] = useState([]); // インポートしたデータの管理
+  const [playlists, setPlaylists] = useState([]); // ユーザー作成のリスト
   const [allWords, setAllWords] = useState([]);
   const [savedIds, setSavedIds] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [playlistAssignments, setPlaylistAssignments] = useState({}); // { playlistId: [wordId, ...] }
+  
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'saved' | playlistId
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('settings');
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
-  const [folderAssignments, setFolderAssignments] = useState({}); // { folderId: [wordId1, wordId2] }
-
   const containerRef = useRef(null);
   const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish' }; });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
-  // データ初期化
   useEffect(() => {
-    const savedFolders = localStorage.getItem('myVocabularyFolders');
-    if (savedFolders) setFolders(JSON.parse(savedFolders));
-    else { setFolders(INITIAL_FOLDERS); localStorage.setItem('myVocabularyFolders', JSON.stringify(INITIAL_FOLDERS)); }
+    // Sources初期化
+    const savedSources = localStorage.getItem('vocabSources');
+    if (savedSources) setSources(JSON.parse(savedSources));
+    else { setSources(INITIAL_SOURCES); localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES)); }
+    
+    // Playlists初期化
+    const savedPlaylists = localStorage.getItem('vocabPlaylists');
+    if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
+    else setPlaylists([]);
 
+    // Words初期化
     const savedWords = localStorage.getItem('myVocabularyData');
-    if (savedWords) setAllWords(JSON.parse(savedWords).map(w => ({ ...w, folderId: w.folderId || INITIAL_FOLDER_ID })));
+    if (savedWords) setAllWords(JSON.parse(savedWords).map(w => ({...w, sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID})));
     else { const initial = shuffleArray(INITIAL_WORDS); setAllWords(initial); localStorage.setItem('myVocabularyData', JSON.stringify(initial)); }
 
     const savedLikes = localStorage.getItem('myVocabularySaved');
     if (savedLikes) setSavedIds(JSON.parse(savedLikes));
-
-    const savedAssignments = localStorage.getItem('myFolderAssignments');
-    if (savedAssignments) setFolderAssignments(JSON.parse(savedAssignments));
+    
+    const savedAssigns = localStorage.getItem('vocabAssignments');
+    if (savedAssigns) setPlaylistAssignments(JSON.parse(savedAssigns));
   }, []);
 
-  // 永続化
-  useEffect(() => localStorage.setItem('myVocabularyFolders', JSON.stringify(folders)), [folders]);
+  useEffect(() => localStorage.setItem('vocabSources', JSON.stringify(sources)), [sources]);
+  useEffect(() => localStorage.setItem('vocabPlaylists', JSON.stringify(playlists)), [playlists]);
   useEffect(() => localStorage.setItem('myVocabularyData', JSON.stringify(allWords)), [allWords]);
   useEffect(() => localStorage.setItem('myVocabularySaved', JSON.stringify(savedIds)), [savedIds]);
-  useEffect(() => localStorage.setItem('myFolderAssignments', JSON.stringify(folderAssignments)), [folderAssignments]);
+  useEffect(() => localStorage.setItem('vocabAssignments', JSON.stringify(playlistAssignments)), [playlistAssignments]);
   useEffect(() => localStorage.setItem('appSettings', JSON.stringify(settings)), [settings]);
 
   const updateSettings = (newSettings) => setSettings(prev => ({ ...prev, ...newSettings }));
   const toggleSave = (id) => setSavedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   const handleTabChange = (tab) => { setActiveTab(tab); if (containerRef.current) containerRef.current.scrollTo({ top: 0 }); };
-  const toggleFolderActive = (folderId) => setFolders(prev => prev.map(f => f.id === folderId ? { ...f, active: !f.active } : f));
-  const handleRenameFolder = (id, newName) => setFolders(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f));
-  
-  const handleDeleteFolder = (id) => {
-    setFolders(prev => prev.filter(f => f.id !== id));
-    // インポート時の「所属フォルダ」概念も消す場合
-    setAllWords(prev => prev.filter(w => w.folderId !== id)); 
-    // assignmentsからも削除
-    const newAssignments = { ...folderAssignments };
-    delete newAssignments[id];
-    setFolderAssignments(newAssignments);
-  };
 
-  const handleImportData = (newFolderId, folderName, newWords) => {
-    setFolders(prev => [...prev, { id: newFolderId, name: folderName, active: true }]);
+  // Sources操作
+  const toggleSourceActive = (sourceId) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, active: !s.active } : s));
+  const handleImportData = (newSourceId, sourceName, newWords) => {
+    setSources(prev => [...prev, { id: newSourceId, name: sourceName, active: true }]);
     setAllWords(prev => shuffleArray([...prev, ...newWords]));
   };
 
-  // ボトムシートからのフォルダ作成
-  const handleCreateFolderFromSheet = (name) => {
+  // Playlists操作
+  const handleCreatePlaylist = (name) => {
     const newId = generateId();
-    setFolders(prev => [...prev, { id: newId, name: name, active: true }]);
-    // 作成と同時に現在の単語を追加する
-    if (currentAddWordId) {
-      handleToggleAssignment(newId, currentAddWordId);
+    setPlaylists(prev => [...prev, { id: newId, name }]);
+    // 作成時にAddSheetから呼ばれた場合、現在の単語を追加
+    if (isAddSheetOpen && currentAddWordId) {
+       handleToggleAssignment(newId, currentAddWordId);
     }
   };
+  const handleRenamePlaylist = (id, newName) => setPlaylists(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
+  const handleDeletePlaylist = (id) => {
+    setPlaylists(prev => prev.filter(p => p.id !== id));
+    if (activeTab === id) setActiveTab('all');
+    // assignments削除
+    const newAssigns = { ...playlistAssignments };
+    delete newAssigns[id];
+    setPlaylistAssignments(newAssigns);
+  };
 
-  // フォルダへの単語追加・削除（トグル）
-  const handleToggleAssignment = (folderId, wordId) => {
-    setFolderAssignments(prev => {
-      const currentList = prev[folderId] || [];
-      if (currentList.includes(wordId)) {
-        return { ...prev, [folderId]: currentList.filter(id => id !== wordId) };
-      } else {
-        return { ...prev, [folderId]: [...currentList, wordId] };
-      }
+  const handleToggleAssignment = (playlistId, wordId) => {
+    setPlaylistAssignments(prev => {
+      const current = prev[playlistId] || [];
+      return { ...prev, [playlistId]: current.includes(wordId) ? current.filter(id => id !== wordId) : [...current, wordId] };
     });
   };
 
-  // 表示ロジック（インポートによる所属 + 手動割り当て）
+  // 表示ロジック
   const displayWords = useMemo(() => {
-    // アクティブなフォルダIDリスト
-    const activeFolderIds = folders.filter(f => f.active).map(f => f.id);
-    
-    // 1. そのフォルダに「元々所属している（インポート時）」単語
-    // 2. または「手動で割り当てられた（Assignment）」単語
-    // のいずれかに該当し、かつそのフォルダがアクティブなら表示
-    
-    let filtered = allWords.filter(w => {
-      // 元々の所属フォルダがアクティブか？
-      if (activeFolderIds.includes(w.folderId)) return true;
-      
-      // 手動で割り当てられたフォルダの中に、アクティブなものがあるか？
-      const assignedFolders = Object.keys(folderAssignments).filter(fid => 
-        folderAssignments[fid]?.includes(w.id)
-      );
-      return assignedFolders.some(fid => activeFolderIds.includes(fid));
-    });
+    // 1. まずActiveなSourceに含まれる単語だけを抽出 (Base Pool)
+    const activeSourceIds = sources.filter(s => s.active).map(s => s.id);
+    const basePool = allWords.filter(w => activeSourceIds.includes(w.sourceId));
 
-    if (activeTab === 'saved') {
-      filtered = filtered.filter(w => savedIds.includes(w.id));
+    // 2. タブによるフィルタリング
+    if (activeTab === 'all') {
+      return basePool;
+    } else if (activeTab === 'saved') {
+      return basePool.filter(w => savedIds.includes(w.id));
+    } else {
+      // プレイリスト選択時
+      const assignedWordIds = playlistAssignments[activeTab] || [];
+      // プレイリストに入っているが、Sourceが非アクティブな場合は表示しない仕様とする
+      return basePool.filter(w => assignedWordIds.includes(w.id));
     }
-    return filtered;
-  }, [activeTab, allWords, savedIds, folders, folderAssignments]);
+  }, [activeTab, allWords, sources, savedIds, playlistAssignments]);
 
   const currentTheme = THEMES[settings.theme] || THEMES.stylish;
 
   return (
     <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${currentTheme.bgClass}`}>
-      <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} openSettings={openSettings} themeKey={settings.theme} />
+      <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} openSettings={openSettings} themeKey={settings.theme} playlists={playlists} />
 
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
@@ -416,58 +408,28 @@ const App = () => {
                 word={word} 
                 isSaved={savedIds.includes(word.id)} 
                 onToggleSave={toggleSave} 
-                onOpenAddToFolder={openAddSheet}
+                onOpenAddToPlaylist={openAddSheet}
                 settings={settings} 
               />
             ))}
             <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}>
-              <div className="flex flex-col items-center gap-2">
-                <Sparkles size={20} />
-                <p className="text-xs font-medium uppercase tracking-widest">End of list</p>
-              </div>
+              <div className="flex flex-col items-center gap-2"><Sparkles size={20} /><p className="text-xs font-medium uppercase tracking-widest">End of list</p></div>
             </div>
           </>
         ) : (
           <div className={`h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 ${currentTheme.bgClass} ${currentTheme.textMain}`}>
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${currentTheme.buttonBg}`}>
-              <FolderOpen size={40} className="opacity-50" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2">No active words</h3>
-            <p className="text-sm opacity-60 text-center max-w-xs mb-6">Active folders are empty or deselected.</p>
-            <button onClick={() => openSettings('folders')} className="px-6 py-3 rounded-full bg-indigo-500 text-white font-bold text-sm shadow-lg hover:bg-indigo-600 transition-colors">Manage Folders</button>
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${currentTheme.buttonBg}`}><FolderOpen size={40} className="opacity-50" /></div>
+            <h3 className="text-2xl font-bold mb-2">List is empty</h3>
+            <p className="text-sm opacity-60 text-center max-w-xs mb-6">Check your data sources or add words to this playlist.</p>
+            <button onClick={() => openSettings('data')} className="px-6 py-3 rounded-full bg-indigo-500 text-white font-bold text-sm shadow-lg hover:bg-indigo-600 transition-colors">Manage Data</button>
           </div>
         )}
       </div>
 
       <AnimatePresence>
-        {isSettingsOpen && (
-          <SettingsModal 
-            isOpen={isSettingsOpen} 
-            onClose={() => setIsSettingsOpen(false)} 
-            initialTab={settingsTab}
-            settings={settings}
-            updateSettings={updateSettings}
-            folders={folders}
-            toggleFolderActive={toggleFolderActive}
-            onRenameFolder={handleRenameFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onImportData={handleImportData}
-          />
-        )}
-        {isAddSheetOpen && (
-          <AddToFolderSheet 
-            isOpen={isAddSheetOpen}
-            onClose={() => setIsAddSheetOpen(false)}
-            folders={folders}
-            currentWordId={currentAddWordId}
-            folderAssignments={folderAssignments}
-            onToggleAssignment={handleToggleAssignment}
-            onCreateFolder={handleCreateFolderFromSheet}
-            themeKey={settings.theme}
-          />
-        )}
+        {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} onImportData={handleImportData} />}
+        {isAddSheetOpen && <AddToPlaylistSheet isOpen={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} playlists={playlists} currentWordId={currentAddWordId} playlistAssignments={playlistAssignments} onToggleAssignment={handleToggleAssignment} onCreatePlaylist={handleCreatePlaylist} themeKey={settings.theme} />}
       </AnimatePresence>
-
       <style jsx global>{` .hide-scrollbar::-webkit-scrollbar { display: none; } `}</style>
     </div>
   );
