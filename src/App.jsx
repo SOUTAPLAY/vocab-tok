@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw } from 'lucide-react';
 
 // --- 初期データ ---
 const INITIAL_SOURCE_ID = 'sample-source';
@@ -23,6 +23,7 @@ const THEMES = {
   white: { id: 'white', label: 'Polar White', bgClass: 'bg-slate-50', textMain: 'text-slate-900', textSub: 'text-slate-500', accent: 'text-indigo-600', badge: 'bg-white text-indigo-600 border-indigo-200 shadow-sm', cardBorder: 'border-slate-200', buttonBg: 'bg-white shadow-md border border-slate-100', isDark: false, hasEffects: false },
 };
 
+// シャッフル関数
 const shuffleArray = (array) => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -31,6 +32,7 @@ const shuffleArray = (array) => {
   }
   return newArray;
 };
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
 
@@ -84,7 +86,7 @@ const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlis
 };
 
 // --- 設定モーダル ---
-const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, toggleSourceActive, playlists, onRenamePlaylist, onDeletePlaylist, onImportData, initialTab }) => {
+const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, toggleSourceActive, playlists, onRenamePlaylist, onDeletePlaylist, onImportData, initialTab, hiddenWords, onUnhideWord }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'settings');
   const [importStatus, setImportStatus] = useState('');
   const [newSourceName, setNewSourceName] = useState('');
@@ -130,9 +132,9 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors"><X size={18} /></button>
         </div>
         <div className="flex border-b border-gray-500/10">
-          <button onClick={() => setActiveTab('settings')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'settings' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Settings</button>
-          <button onClick={() => setActiveTab('data')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'data' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Data Sources</button>
-          <button onClick={() => setActiveTab('playlists')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === 'playlists' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Playlists</button>
+          {['settings', 'data', 'playlists', 'hidden'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
+          ))}
         </div>
         <div className="p-6 overflow-y-auto flex-1">
           {activeTab === 'settings' && (
@@ -148,16 +150,31 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="flex justify-between items-center mb-2 font-medium"><span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span><span className="text-sm font-mono">{settings.revealSpeed}s</span></label>
-                <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+              <div className="space-y-4">
+                <div>
+                  <label className="flex justify-between items-center mb-2 font-medium"><span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span><span className="text-sm font-mono">{settings.revealSpeed}s</span></label>
+                  <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                </div>
+                {/* シャッフル切り替えスイッチ */}
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <Shuffle size={18} className="opacity-70" />
+                    <span className="text-sm font-bold">Shuffle Words</span>
+                  </div>
+                  <button 
+                    onClick={() => updateSettings({ isShuffle: !settings.isShuffle })}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.isShuffle ? 'bg-indigo-500' : 'bg-gray-500/30'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.isShuffle ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
           {activeTab === 'data' && (
             <div className="space-y-6">
               <div className="space-y-3">
-                <p className="text-xs opacity-60 mb-2">Select active data sources to display in Main Feed.</p>
+                <p className="text-xs opacity-60 mb-2">Toggle active source folders.</p>
                 {sources.map(source => (
                   <div key={source.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${source.active ? (t.isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') : (t.isDark ? 'bg-transparent border-gray-700 opacity-70' : 'bg-transparent border-gray-200 opacity-70')}`}>
                     <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => toggleSourceActive(source.id)}>
@@ -173,7 +190,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                 <button onClick={() => fileInputRef.current.click()} className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${t.isDark ? 'bg-white text-slate-900 hover:bg-gray-200' : 'bg-slate-900 text-white hover:bg-slate-700'}`}><Upload size={18} /> Upload JSON</button>
                 <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                 {importStatus && <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}><AlertCircle size={14} /> {importStatus}</div>}
-                <div className="text-[10px] opacity-50 flex items-center justify-between"><span>Format: JSON Array</span><button onClick={copyFormat} className="underline">Copy Sample</button></div>
               </div>
             </div>
           )}
@@ -195,6 +211,27 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
               ))}
             </div>
           )}
+          {/* 非表示リストタブ */}
+          {activeTab === 'hidden' && (
+            <div className="space-y-4">
+              <p className="text-xs opacity-60 mb-2">Words you've hidden from the feed.</p>
+              {hiddenWords.length === 0 && <p className="text-sm opacity-50 italic">No hidden words.</p>}
+              {hiddenWords.map(word => (
+                <div key={word.id} className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="font-bold text-sm">{word.en}</p>
+                    <p className="text-xs opacity-60 truncate">{word.ja}</p>
+                  </div>
+                  <button 
+                    onClick={() => onUnhideWord(word.id)}
+                    className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-1"
+                  >
+                    <RefreshCcw size={12} /> Unhide
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -202,7 +239,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
 };
 
 // --- 単語カード ---
-const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, settings }) => {
+const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings }) => {
   const { revealSpeed, theme } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
@@ -235,6 +272,13 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, settings }
             <ListPlus size={28} className={`transition-all duration-300 ${t.isDark ? 'text-white' : 'text-slate-700'}`} />
           </div>
           <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Add</span>
+        </button>
+        {/* Hide Button (New) */}
+        <button onClick={() => { if(window.confirm('Hide this word from feed?')) onHideWord(word.id); }} className="group flex flex-col items-center gap-1 cursor-pointer">
+          <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} hover:bg-gray-500/20`}>
+            <EyeOff size={24} className={`transition-all duration-300 ${t.isDark ? 'text-white opacity-50 hover:opacity-100' : 'text-slate-700 opacity-50 hover:opacity-100'}`} />
+          </div>
+          <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Hide</span>
         </button>
       </div>
     </div>
@@ -288,6 +332,7 @@ const App = () => {
   const [playlists, setPlaylists] = useState([]);
   const [allWords, setAllWords] = useState([]);
   const [savedIds, setSavedIds] = useState([]);
+  const [hiddenIds, setHiddenIds] = useState([]); // 非表示単語IDリスト
   const [playlistAssignments, setPlaylistAssignments] = useState({});
   const [activeTab, setActiveTab] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -295,33 +340,36 @@ const App = () => {
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
   const containerRef = useRef(null);
-  const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish' }; });
+  
+  // 設定に isShuffle を追加
+  const [settings, setSettings] = useState(() => { 
+    const saved = localStorage.getItem('appSettings'); 
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true }; 
+  });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
   useEffect(() => {
-    // Sources
     const savedSources = localStorage.getItem('vocabSources');
     if (savedSources) setSources(JSON.parse(savedSources));
     else { setSources(INITIAL_SOURCES); localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES)); }
     
-    // Playlists
     const savedPlaylists = localStorage.getItem('vocabPlaylists');
     if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
     else setPlaylists([]);
 
-    // Words (強制的なID修正)
+    // Words
     const savedWords = localStorage.getItem('myVocabularyData');
     if (savedWords) {
       const parsedWords = JSON.parse(savedWords);
       const fixedWords = parsedWords.map(w => ({
         ...w, 
-        // 以前の folderId があれば sourceId に変換、なければ 初期ID
         sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID 
       }));
       setAllWords(fixedWords);
     } else { 
+      // 初期状態ではシャッフルして保存（デフォルトがONなら）
       const initial = shuffleArray(INITIAL_WORDS); 
       setAllWords(initial); 
       localStorage.setItem('myVocabularyData', JSON.stringify(initial)); 
@@ -329,6 +377,10 @@ const App = () => {
 
     const savedLikes = localStorage.getItem('myVocabularySaved');
     if (savedLikes) setSavedIds(JSON.parse(savedLikes));
+    
+    // Hidden Words読み込み
+    const savedHidden = localStorage.getItem('vocabHidden');
+    if (savedHidden) setHiddenIds(JSON.parse(savedHidden));
     
     const savedAssigns = localStorage.getItem('vocabAssignments');
     if (savedAssigns) setPlaylistAssignments(JSON.parse(savedAssigns));
@@ -338,6 +390,7 @@ const App = () => {
   useEffect(() => localStorage.setItem('vocabPlaylists', JSON.stringify(playlists)), [playlists]);
   useEffect(() => localStorage.setItem('myVocabularyData', JSON.stringify(allWords)), [allWords]);
   useEffect(() => localStorage.setItem('myVocabularySaved', JSON.stringify(savedIds)), [savedIds]);
+  useEffect(() => localStorage.setItem('vocabHidden', JSON.stringify(hiddenIds)), [hiddenIds]);
   useEffect(() => localStorage.setItem('vocabAssignments', JSON.stringify(playlistAssignments)), [playlistAssignments]);
   useEffect(() => localStorage.setItem('appSettings', JSON.stringify(settings)), [settings]);
 
@@ -348,7 +401,12 @@ const App = () => {
   const toggleSourceActive = (sourceId) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, active: !s.active } : s));
   const handleImportData = (newSourceId, sourceName, newWords) => {
     setSources(prev => [...prev, { id: newSourceId, name: sourceName, active: true }]);
-    setAllWords(prev => shuffleArray([...prev, ...newWords]));
+    // 追加時も設定に合わせてシャッフルするか決める
+    if (settings.isShuffle) {
+      setAllWords(prev => shuffleArray([...prev, ...newWords]));
+    } else {
+      setAllWords(prev => [...prev, ...newWords]);
+    }
   };
 
   const handleCreatePlaylist = (name) => {
@@ -371,11 +429,27 @@ const App = () => {
     });
   };
 
-  const displayWords = useMemo(() => {
-    // 1. アクティブなSourceの単語をベースにする
-    const activeSourceIds = sources.filter(s => s.active).map(s => s.id);
-    const basePool = allWords.filter(w => activeSourceIds.includes(w.sourceId));
+  // Hide/Unhide機能
+  const handleHideWord = (id) => setHiddenIds(prev => [...prev, id]);
+  const handleUnhideWord = (id) => setHiddenIds(prev => prev.filter(hid => hid !== id));
 
+  const displayWords = useMemo(() => {
+    // 1. アクティブなSourceの単語
+    const activeSourceIds = sources.filter(s => s.active).map(s => s.id);
+    let basePool = allWords.filter(w => activeSourceIds.includes(w.sourceId));
+
+    // 2. Hiddenを除外
+    basePool = basePool.filter(w => !hiddenIds.includes(w.id));
+
+    // 3. シャッフル制御 (レンダリング順序)
+    // ReactのStateに保存されている allWords 自体の順序が変わるわけではないが、
+    // ここでID順にソートするか、allWords(State)の順序(=Shuffleならシャッフル済み)を使うか分岐
+    if (!settings.isShuffle) {
+      // IDが数値なら数値順、文字列なら文字順でソート（インポート順を維持したい場合は別途orderプロパティが必要だが簡易的にID順）
+      basePool.sort((a, b) => (a.id > b.id ? 1 : -1));
+    }
+
+    // 4. タブフィルタ
     if (activeTab === 'all') {
       return basePool;
     } else if (activeTab === 'saved') {
@@ -384,7 +458,11 @@ const App = () => {
       const assignedWordIds = playlistAssignments[activeTab] || [];
       return basePool.filter(w => assignedWordIds.includes(w.id));
     }
-  }, [activeTab, allWords, sources, savedIds, playlistAssignments]);
+  }, [activeTab, allWords, sources, savedIds, playlistAssignments, hiddenIds, settings.isShuffle]);
+
+  const hiddenWordObjects = useMemo(() => {
+    return allWords.filter(w => hiddenIds.includes(w.id));
+  }, [allWords, hiddenIds]);
 
   const currentTheme = THEMES[settings.theme] || THEMES.stylish;
 
@@ -394,7 +472,7 @@ const App = () => {
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
           <>
-            {displayWords.map((word) => <WordCard key={word.id} word={word} isSaved={savedIds.includes(word.id)} onToggleSave={toggleSave} onOpenAddToPlaylist={openAddSheet} settings={settings} />)}
+            {displayWords.map((word) => <WordCard key={word.id} word={word} isSaved={savedIds.includes(word.id)} onToggleSave={toggleSave} onOpenAddToPlaylist={openAddSheet} onHideWord={handleHideWord} settings={settings} />)}
             <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}><div className="flex flex-col items-center gap-2"><Sparkles size={20} /><p className="text-xs font-medium uppercase tracking-widest">End of list</p></div></div>
           </>
         ) : (
@@ -407,7 +485,7 @@ const App = () => {
         )}
       </div>
       <AnimatePresence>
-        {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} onImportData={handleImportData} />}
+        {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} onImportData={handleImportData} hiddenWords={hiddenWordObjects} onUnhideWord={handleUnhideWord} />}
         {isAddSheetOpen && <AddToPlaylistSheet isOpen={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} playlists={playlists} currentWordId={currentAddWordId} playlistAssignments={playlistAssignments} onToggleAssignment={handleToggleAssignment} onCreatePlaylist={handleCreatePlaylist} themeKey={settings.theme} />}
       </AnimatePresence>
       <style jsx global>{` .hide-scrollbar::-webkit-scrollbar { display: none; } `}</style>
