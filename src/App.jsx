@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, BookOpen, Layers, Palette, Check, Upload, FileJson, Copy, AlertCircle, Folder, FolderOpen, CheckSquare, Square } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, BookOpen, Layers, Palette, Check, Upload, FileJson, Copy, AlertCircle, Folder, FolderOpen, CheckSquare, Square, Trash2, Edit2, Save } from 'lucide-react';
 
-// --- 初期データ (フォルダIDを追加) ---
+// --- 初期データ ---
 const INITIAL_FOLDER_ID = 'sample-folder';
 const INITIAL_FOLDERS = [
   { id: INITIAL_FOLDER_ID, name: 'Sample Words', active: true }
@@ -48,14 +48,38 @@ const SAMPLE_JSON_FORMAT = `[
 ]`;
 
 // --- 設定・フォルダ管理モーダル ---
-const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, toggleFolderActive, onImportData }) => {
-  const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'folders' | 'import'
+const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, toggleFolderActive, onImportData, initialTab, onRenameFolder, onDeleteFolder }) => {
+  // initialTabを使って初期タブを設定
+  const [activeTab, setActiveTab] = useState(initialTab || 'settings');
   const [importStatus, setImportStatus] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
+  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [editName, setEditName] = useState('');
   const fileInputRef = useRef(null);
+
+  // モーダルが開くたびにタブをリセット（または指定タブに設定）
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
   const currentTheme = THEMES[settings.theme] || THEMES.stylish;
+
+  // フォルダ名編集開始
+  const startEditing = (folder) => {
+    setEditingFolderId(folder.id);
+    setEditName(folder.name);
+  };
+
+  // フォルダ名保存
+  const saveEditing = () => {
+    if (editName.trim()) {
+      onRenameFolder(editingFolderId, editName);
+    }
+    setEditingFolderId(null);
+  };
 
   // JSONインポート処理
   const handleFileUpload = (event) => {
@@ -69,7 +93,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
       try {
         const json = JSON.parse(e.target.result);
         if (Array.isArray(json)) {
-          // ID生成とフォルダ割り当て
           const newFolderId = generateId();
           const wordsToAdd = json.map(w => ({
             ...w,
@@ -109,7 +132,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
         className={`w-full max-w-sm max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${currentTheme.isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200'}`}
         onClick={e => e.stopPropagation()}
       >
-        {/* ヘッダー */}
         <div className="p-4 border-b border-gray-500/10 flex justify-between items-center">
           <h2 className="font-bold flex items-center gap-2">
             <Settings size={18} /> Preferences
@@ -119,20 +141,15 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
           </button>
         </div>
 
-        {/* タブナビゲーション */}
         <div className="flex border-b border-gray-500/10">
           <button onClick={() => setActiveTab('settings')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wide ${activeTab === 'settings' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Settings</button>
           <button onClick={() => setActiveTab('folders')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wide ${activeTab === 'folders' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Folders</button>
           <button onClick={() => setActiveTab('import')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wide ${activeTab === 'import' ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>Import</button>
         </div>
 
-        {/* コンテンツエリア */}
         <div className="p-6 overflow-y-auto flex-1">
-          
-          {/* --- SETTINGS TAB --- */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              {/* テーマ */}
               <div>
                 <label className="flex items-center gap-2 font-medium mb-3 text-sm opacity-70"><Palette size={14} /> Theme</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -153,8 +170,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
                   ))}
                 </div>
               </div>
-
-              {/* スピード */}
               <div>
                 <label className="flex justify-between items-center mb-2 font-medium">
                   <span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span>
@@ -170,31 +185,66 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
             </div>
           )}
 
-          {/* --- FOLDERS TAB --- */}
           {activeTab === 'folders' && (
             <div className="space-y-4">
-              <p className="text-xs opacity-60 mb-2">Select folders to include in your feed.</p>
+              <p className="text-xs opacity-60 mb-2">Manage your word collections.</p>
               {folders.map(folder => (
                 <div 
                   key={folder.id} 
-                  onClick={() => toggleFolderActive(folder.id)}
-                  className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                     folder.active 
                       ? (currentTheme.isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') 
-                      : (currentTheme.isDark ? 'bg-transparent border-gray-700 opacity-50' : 'bg-transparent border-gray-200 opacity-50')
+                      : (currentTheme.isDark ? 'bg-transparent border-gray-700 opacity-70' : 'bg-transparent border-gray-200 opacity-70')
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    {folder.active ? <FolderOpen size={18} className="text-indigo-400" /> : <Folder size={18} />}
-                    <span className="font-bold text-sm">{folder.name}</span>
+                  {/* 左側: チェックボックスと名前 */}
+                  <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                    <button onClick={() => toggleFolderActive(folder.id)} className="flex-shrink-0">
+                      {folder.active ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
+                    </button>
+                    
+                    {editingFolderId === folder.id ? (
+                      <input 
+                        type="text" 
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="bg-transparent border-b border-indigo-500 text-sm font-bold w-full focus:outline-none"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="font-bold text-sm truncate" onClick={() => toggleFolderActive(folder.id)}>
+                        {folder.name}
+                      </span>
+                    )}
                   </div>
-                  {folder.active ? <CheckSquare size={18} className="text-indigo-500" /> : <Square size={18} />}
+
+                  {/* 右側: アクションボタン */}
+                  <div className="flex items-center gap-2 ml-2">
+                    {editingFolderId === folder.id ? (
+                      <button onClick={saveEditing} className="p-1.5 hover:bg-indigo-500/20 rounded-md text-indigo-500">
+                        <Save size={14} />
+                      </button>
+                    ) : (
+                      <button onClick={() => startEditing(folder)} className="p-1.5 hover:bg-gray-500/10 rounded-md opacity-50 hover:opacity-100">
+                        <Edit2 size={14} />
+                      </button>
+                    )}
+                    
+                    {/* 最後の1つでなければ削除可能 */}
+                    {folders.length > 1 && (
+                      <button 
+                        onClick={() => { if(window.confirm('Delete this folder and ALL its words?')) onDeleteFolder(folder.id); }} 
+                        className="p-1.5 hover:bg-rose-500/20 rounded-md text-rose-500 opacity-50 hover:opacity-100"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* --- IMPORT TAB --- */}
           {activeTab === 'import' && (
             <div className="space-y-6">
               <div>
@@ -207,28 +257,23 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
                   className={`w-full p-3 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${currentTheme.isDark ? 'border-gray-700' : 'border-gray-300'}`}
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider opacity-70 mb-2">2. Upload JSON</label>
                 <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                 <button 
                   onClick={() => fileInputRef.current.click()}
                   className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                    currentTheme.isDark 
-                      ? 'bg-white text-slate-900 hover:bg-gray-200' 
-                      : 'bg-slate-900 text-white hover:bg-slate-700'
+                    currentTheme.isDark ? 'bg-white text-slate-900 hover:bg-gray-200' : 'bg-slate-900 text-white hover:bg-slate-700'
                   }`}
                 >
                   <Upload size={18} /> Select File
                 </button>
               </div>
-
               {importStatus && (
                 <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                   <AlertCircle size={14} /> {importStatus}
                 </div>
               )}
-
               <div className="pt-4 border-t border-gray-500/20">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-bold opacity-50">JSON FORMAT SAMPLE</span>
@@ -246,7 +291,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, folders, tog
   );
 };
 
-// --- 単語カード (変更なし) ---
+// --- 単語カード ---
 const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
   const { revealSpeed, theme } = settings;
   const t = THEMES[theme] || THEMES.stylish;
@@ -296,12 +341,12 @@ const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
 };
 
 // --- ヘッダー ---
-const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings, themeKey }) => {
+const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey }) => {
   const t = THEMES[themeKey] || THEMES.stylish;
   return (
     <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 flex justify-between items-start pointer-events-none">
       <button 
-        onClick={onOpenSettings}
+        onClick={() => openSettings('settings')} // 設定タブを開く
         className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}
       >
         <Settings size={20} />
@@ -333,6 +378,7 @@ const App = () => {
   const [savedIds, setSavedIds] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('settings'); // モーダルの初期タブ管理用
   const containerRef = useRef(null);
 
   const [settings, setSettings] = useState(() => {
@@ -340,7 +386,13 @@ const App = () => {
     return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish' };
   });
 
-  // データ初期化
+  // 設定モーダルを開く関数
+  const openSettings = (tab = 'settings') => {
+    setSettingsTab(tab);
+    setIsSettingsOpen(true);
+  };
+
+  // データ初期化 (重要: データ移行ロジック)
   useEffect(() => {
     // フォルダ読み込み
     const savedFolders = localStorage.getItem('myVocabularyFolders');
@@ -351,10 +403,16 @@ const App = () => {
       localStorage.setItem('myVocabularyFolders', JSON.stringify(INITIAL_FOLDERS));
     }
 
-    // 単語読み込み
+    // 単語読み込み (フォルダIDの修復を含む)
     const savedWords = localStorage.getItem('myVocabularyData');
     if (savedWords) {
-      setAllWords(JSON.parse(savedWords));
+      const parsedWords = JSON.parse(savedWords);
+      // 【修正】フォルダIDがない古いデータがあれば、デフォルトフォルダに割り当てる
+      const fixedWords = parsedWords.map(w => ({
+        ...w,
+        folderId: w.folderId || INITIAL_FOLDER_ID
+      }));
+      setAllWords(fixedWords);
     } else {
       const initial = shuffleArray(INITIAL_WORDS);
       setAllWords(initial);
@@ -365,14 +423,13 @@ const App = () => {
     if (savedLikes) setSavedIds(JSON.parse(savedLikes));
   }, []);
 
-  // 永続化処理
+  // 永続化
   useEffect(() => localStorage.setItem('myVocabularyFolders', JSON.stringify(folders)), [folders]);
   useEffect(() => localStorage.setItem('myVocabularyData', JSON.stringify(allWords)), [allWords]);
   useEffect(() => localStorage.setItem('myVocabularySaved', JSON.stringify(savedIds)), [savedIds]);
   useEffect(() => localStorage.setItem('appSettings', JSON.stringify(settings)), [settings]);
 
   const updateSettings = (newSettings) => setSettings(prev => ({ ...prev, ...newSettings }));
-  
   const toggleSave = (id) => setSavedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   
   const handleTabChange = (tab) => {
@@ -380,32 +437,35 @@ const App = () => {
     if (containerRef.current) containerRef.current.scrollTo({ top: 0 });
   };
 
-  // フォルダ有効化切り替え
   const toggleFolderActive = (folderId) => {
     setFolders(prev => prev.map(f => f.id === folderId ? { ...f, active: !f.active } : f));
   };
 
-  // インポート処理
+  const handleRenameFolder = (id, newName) => {
+    setFolders(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f));
+  };
+
+  const handleDeleteFolder = (id) => {
+    // フォルダを削除
+    setFolders(prev => prev.filter(f => f.id !== id));
+    // そのフォルダに含まれる単語も削除
+    setAllWords(prev => prev.filter(w => w.folderId !== id));
+    // 保存済みIDからも、消えた単語のIDを除外
+    const wordsToDelete = allWords.filter(w => w.folderId === id).map(w => w.id);
+    setSavedIds(prev => prev.filter(savedId => !wordsToDelete.includes(savedId)));
+  };
+
   const handleImportData = (newFolderId, folderName, newWords) => {
-    // 新規フォルダ追加
     setFolders(prev => [...prev, { id: newFolderId, name: folderName, active: true }]);
-    // 単語リストに追加してシャッフル
     setAllWords(prev => shuffleArray([...prev, ...newWords]));
   };
 
-  // 表示単語のフィルタリング（アクティブなフォルダ かつ 保存状態）
   const displayWords = useMemo(() => {
-    // 1. アクティブなフォルダのIDリストを取得
     const activeFolderIds = folders.filter(f => f.active).map(f => f.id);
-    
-    // 2. フォルダでフィルタリング
     let filtered = allWords.filter(w => activeFolderIds.includes(w.folderId));
-
-    // 3. Savedタブならさらに絞り込み
     if (activeTab === 'saved') {
       filtered = filtered.filter(w => savedIds.includes(w.id));
     }
-
     return filtered;
   }, [activeTab, allWords, savedIds, folders]);
 
@@ -413,7 +473,7 @@ const App = () => {
 
   return (
     <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${currentTheme.bgClass}`}>
-      <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} onOpenSettings={() => setIsSettingsOpen(true)} themeKey={settings.theme} />
+      <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} openSettings={openSettings} themeKey={settings.theme} />
 
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
@@ -433,9 +493,9 @@ const App = () => {
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${currentTheme.buttonBg}`}>
               <FolderOpen size={40} className="opacity-50" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">No words active</h3>
-            <p className="text-sm opacity-60 text-center max-w-xs mb-6">Check your folder settings or import new words to get started.</p>
-            <button onClick={() => setIsSettingsOpen(true)} className="px-6 py-3 rounded-full bg-indigo-500 text-white font-bold text-sm shadow-lg hover:bg-indigo-600 transition-colors">Manage Folders</button>
+            <h3 className="text-2xl font-bold mb-2">No active words</h3>
+            <p className="text-sm opacity-60 text-center max-w-xs mb-6">Active folders are empty or deselected.</p>
+            <button onClick={() => openSettings('folders')} className="px-6 py-3 rounded-full bg-indigo-500 text-white font-bold text-sm shadow-lg hover:bg-indigo-600 transition-colors">Manage Folders</button>
           </div>
         )}
       </div>
@@ -445,10 +505,13 @@ const App = () => {
           <SettingsModal 
             isOpen={isSettingsOpen} 
             onClose={() => setIsSettingsOpen(false)} 
+            initialTab={settingsTab}
             settings={settings}
             updateSettings={updateSettings}
             folders={folders}
             toggleFolderActive={toggleFolderActive}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
             onImportData={handleImportData}
           />
         )}
