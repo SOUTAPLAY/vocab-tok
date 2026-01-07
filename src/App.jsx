@@ -33,7 +33,15 @@ const shuffleArray = (array) => {
 };
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
+const SAMPLE_JSON_FORMAT = `[
+  {
+    "en": "example",
+    "pos": "名詞",
+    "ja": "例",
+    "exEn": "This is an example.",
+    "exJa": "これは例です。"
+  }
+]`;
 
 // --- プレイリスト追加ボトムシート ---
 const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlistAssignments, onToggleAssignment, onCreatePlaylist, themeKey }) => {
@@ -188,6 +196,17 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                 <button onClick={() => fileInputRef.current.click()} className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${t.isDark ? 'bg-white text-slate-900 hover:bg-gray-200' : 'bg-slate-900 text-white hover:bg-slate-700'}`}><Upload size={18} /> Upload JSON</button>
                 <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                 {importStatus && <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}><AlertCircle size={14} /> {importStatus}</div>}
+                
+                {/* 復活させたJSONサンプル表示部分 */}
+                <div className="pt-4 border-t border-gray-500/20">
+                    <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold opacity-50">JSON FORMAT SAMPLE</span>
+                    <button onClick={copyFormat} className="text-xs text-indigo-400 hover:underline flex items-center gap-1"><Copy size={10} /> Copy</button>
+                    </div>
+                    <div className={`p-3 rounded-lg text-[10px] font-mono leading-relaxed opacity-70 ${t.isDark ? 'bg-black/30' : 'bg-slate-100'}`}>
+                    <pre>{SAMPLE_JSON_FORMAT}</pre>
+                    </div>
+                </div>
               </div>
             </div>
           )}
