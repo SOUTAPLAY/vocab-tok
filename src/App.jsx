@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, List, X, Volume2, Sparkles, Search } from 'lucide-react';
+import { Heart, Sparkles, Volume2, BookOpen, Layers } from 'lucide-react';
 
-// --- サンプルデータ (TOEIC 700点レベル) ---
+// --- サンプルデータ ---
 const INITIAL_WORDS = [
   { id: 1, en: "innovation", ja: "革新", part: "noun", sentence: "Technological innovation is key." },
   { id: 2, en: "mandatory", ja: "義務的な", part: "adj", sentence: "Attendance is mandatory." },
@@ -36,158 +36,152 @@ const shuffleArray = (array) => {
   return newArray;
 };
 
-// --- コンポーネント: 単語カード (1画面分) ---
-const WordCard = ({ word, isSaved, onToggleSave }) => {
+// --- コンポーネント: 単語カード ---
+const WordCard = ({ word, isSaved, onToggleSave, isActive }) => {
   return (
-    <div className="h-[100dvh] w-full flex flex-col justify-center items-center relative snap-start bg-slate-950 border-b border-slate-900 overflow-hidden">
+    // 【重要修正】snap-always を追加。これにより勢いよくスクロールしても必ずここで止まる
+    <div className="h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative bg-slate-950 border-b border-slate-900 overflow-hidden flex flex-col justify-center items-center">
       
-      {/* 背景装飾 (没入感を高めるグラデーション) */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-black pointer-events-none" />
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl" />
+      {/* 背景エフェクト */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-black pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px]" />
 
-      {/* メインコンテンツエリア */}
-      <div className="z-10 flex flex-col items-center justify-center w-full px-8 text-center space-y-8">
+      {/* メインコンテンツ */}
+      <div className="z-10 flex flex-col items-center justify-center w-full px-6 text-center space-y-10">
         
-        {/* 品詞タグ */}
-        <motion.span 
-          initial={{ opacity: 0, y: -20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+        {/* 品詞 */}
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={isActive ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="px-3 py-1 text-xs font-medium tracking-wider text-indigo-300 uppercase bg-indigo-900/30 rounded-full border border-indigo-500/20"
+          className="px-4 py-1.5 text-xs font-bold tracking-widest text-indigo-300 uppercase bg-indigo-950/50 rounded-full border border-indigo-500/20 shadow-lg shadow-indigo-500/10"
         >
           {word.part}
-        </motion.span>
+        </motion.div>
 
-        {/* 英単語 (メイン) */}
+        {/* 英単語 */}
         <motion.h2 
-          initial={{ scale: 0.9, opacity: 0 }}
-          whileInView={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4, type: "spring" }}
-          className="text-6xl font-black tracking-tighter text-white drop-shadow-2xl"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={isActive ? { scale: 1, opacity: 1 } : {}}
+          transition={{ duration: 0.4, type: "spring", stiffness: 200 }}
+          className="text-6xl md:text-7xl font-black tracking-tighter text-white drop-shadow-2xl"
         >
           {word.en}
         </motion.h2>
 
-        {/* 日本語訳 (0.5秒遅延でフェードイン - これが学習の肝) */}
-        <div className="h-24 flex flex-col items-center justify-start">
+        {/* 日本語訳 & 例文 (遅延表示) */}
+        <div className="h-32 w-full flex flex-col items-center justify-start">
           <motion.div
-            initial={{ opacity: 0, filter: "blur(10px)" }}
-            whileInView={{ opacity: 1, filter: "blur(0px)" }}
-            viewport={{ once: false, amount: 0.5 }}
-            transition={{ delay: 0.5, duration: 0.8 }} // 0.5秒待ってから表示
-            className="flex flex-col items-center space-y-3"
+            initial={{ opacity: 0, filter: "blur(10px)", y: 10 }}
+            animate={isActive ? { opacity: 1, filter: "blur(0px)", y: 0 } : {}}
+            transition={{ delay: 0.5, duration: 0.6 }} // 0.5秒遅延
+            className="flex flex-col items-center space-y-4"
           >
             <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-200">
               {word.ja}
             </p>
-            <p className="text-sm text-slate-400 font-light italic max-w-xs">
+            <p className="text-sm text-slate-400 font-light italic max-w-xs leading-relaxed">
               "{word.sentence}"
             </p>
           </motion.div>
         </div>
       </div>
 
-      {/* 右側のアクションバー (TikTokスタイル) */}
-      <div className="absolute right-4 bottom-20 flex flex-col items-center gap-6 z-20">
-        
-        {/* Likeボタン */}
+      {/* サイドボタン (TikTok風) */}
+      <div className="absolute right-4 bottom-24 flex flex-col items-center gap-6 z-20">
         <button 
           onClick={() => onToggleSave(word.id)}
-          className="group flex flex-col items-center gap-1"
+          className="group flex flex-col items-center gap-1 cursor-pointer"
         >
-          <div className={`p-3 rounded-full transition-all duration-300 ${isSaved ? 'bg-white/10' : 'bg-transparent'}`}>
+          <div className={`p-3.5 rounded-full transition-all duration-300 shadow-xl ${isSaved ? 'bg-white/10' : 'bg-slate-800/40 backdrop-blur-sm'}`}>
             <Heart 
-              size={32} 
-              className={`transition-all duration-300 ${isSaved ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white group-active:scale-90'}`} 
+              size={28} 
+              className={`transition-all duration-300 ${isSaved ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white group-active:scale-75'}`} 
             />
           </div>
-          <span className="text-xs font-medium text-white shadow-black drop-shadow-md">Save</span>
+          <span className="text-[10px] font-bold text-white drop-shadow-md">Save</span>
         </button>
 
-        {/* ダミーの音声ボタン (機能拡張用) */}
-        <button className="group flex flex-col items-center gap-1 opacity-80 hover:opacity-100">
-          <div className="p-3 bg-slate-800/50 rounded-full backdrop-blur-sm">
-            <Volume2 size={28} className="text-white" />
+        <button className="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+          <div className="p-3.5 bg-slate-800/40 backdrop-blur-sm rounded-full">
+            <Volume2 size={24} className="text-white" />
           </div>
-          <span className="text-xs font-medium text-white shadow-black drop-shadow-md">Sound</span>
+          <span className="text-[10px] font-bold text-white drop-shadow-md">Speak</span>
         </button>
       </div>
     </div>
   );
 };
 
-// --- コンポーネント: 保存リスト画面 ---
-const SavedList = ({ savedWords, words, onClose, onRemove }) => {
-  // 保存されたIDに基づいて単語データをフィルタリング
-  const savedItems = words.filter(w => savedWords.includes(w.id));
-
+// --- コンポーネント: タブナビゲーション ---
+const TabHeader = ({ activeTab, onTabChange, savedCount }) => {
   return (
-    <motion.div 
-      initial={{ x: '-100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '-100%' }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-50 bg-slate-950 flex flex-col"
-    >
-      <div className="p-4 flex items-center justify-between border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-10">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Heart className="fill-rose-500 text-rose-500" size={20} />
-          Saved Words ({savedItems.length})
-        </h2>
-        <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-800 text-white">
-          <X size={24} />
+    <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 pb-4 bg-gradient-to-b from-black/80 to-transparent pointer-events-none flex justify-center">
+      <div className="pointer-events-auto flex items-center bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/5 shadow-2xl">
+        <button
+          onClick={() => onTabChange('all')}
+          className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
+            activeTab === 'all' 
+              ? 'bg-white text-black shadow-lg' 
+              : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          <Layers size={14} />
+          All
+        </button>
+        <button
+          onClick={() => onTabChange('saved')}
+          className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
+            activeTab === 'saved' 
+              ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' 
+              : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          <Heart size={14} className={activeTab === 'saved' ? 'fill-white' : ''} />
+          Saved
+          {savedCount > 0 && <span className="ml-1 text-[10px] opacity-80">({savedCount})</span>}
         </button>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {savedItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
-            <Sparkles size={48} className="text-slate-700" />
-            <p>No saved words yet.</p>
-            <button onClick={onClose} className="text-indigo-400 text-sm hover:underline">
-              Go back to discover
-            </button>
-          </div>
-        ) : (
-          savedItems.map(word => (
-            <div key={word.id} className="bg-slate-900 rounded-xl p-4 flex justify-between items-center border border-slate-800 shadow-sm">
-              <div>
-                <h3 className="text-lg font-bold text-white">{word.en}</h3>
-                <p className="text-emerald-400 text-sm">{word.ja}</p>
-              </div>
-              <button 
-                onClick={() => onRemove(word.id)}
-                className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
-              >
-                <Heart size={20} className="fill-rose-500 text-rose-500" />
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </motion.div>
+    </div>
   );
 };
 
+// --- コンポーネント: 空の状態 ---
+const EmptyState = ({ onBack }) => (
+  <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-slate-950 text-center px-6 snap-start">
+    <div className="w-24 h-24 bg-slate-900 rounded-full flex items-center justify-center mb-6">
+      <BookOpen size={40} className="text-slate-600" />
+    </div>
+    <h3 className="text-2xl font-bold text-white mb-2">No saved words yet</h3>
+    <p className="text-slate-400 mb-8 max-w-xs">
+      Tap the heart icon on any word to build your personal collection.
+    </p>
+    <button 
+      onClick={onBack}
+      className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-bold transition-colors shadow-lg shadow-indigo-500/30"
+    >
+      Start Learning
+    </button>
+  </div>
+);
+
 // --- メインアプリ ---
 const App = () => {
-  const [words, setWords] = useState([]);
+  const [allWords, setAllWords] = useState([]);
   const [savedIds, setSavedIds] = useState([]);
-  const [isSavedListOpen, setIsSavedListOpen] = useState(false);
-  const scrollContainerRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'saved'
+  const containerRef = useRef(null);
 
-  // 初期化：単語シャッフルとローカルストレージ読み込み
+  // 初期化
   useEffect(() => {
-    setWords(shuffleArray(INITIAL_WORDS));
-    
+    setAllWords(shuffleArray(INITIAL_WORDS));
     const saved = localStorage.getItem('myVocabularySaved');
     if (saved) {
       setSavedIds(JSON.parse(saved));
     }
   }, []);
 
-  // 保存状態が変化したらローカルストレージを更新
+  // 保存処理
   useEffect(() => {
     localStorage.setItem('myVocabularySaved', JSON.stringify(savedIds));
   }, [savedIds]);
@@ -202,65 +196,74 @@ const App = () => {
     });
   };
 
+  // 表示する単語リストの切り替え
+  const displayWords = useMemo(() => {
+    if (activeTab === 'saved') {
+      // 保存順ではなく、現在のリストの順序を維持しつつフィルタリング
+      return allWords.filter(word => savedIds.includes(word.id));
+    }
+    return allWords;
+  }, [activeTab, allWords, savedIds]);
+
+  // タブ切り替え時にスクロール位置をトップにリセット（重要修正）
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
   return (
-    <div className="relative w-full h-[100dvh] bg-black text-white overflow-hidden font-sans">
+    <div className="relative w-full h-[100dvh] bg-black text-white font-sans overflow-hidden">
       
-      {/* メインフィード (スクロールスナップコンテナ) */}
+      {/* タブヘッダー */}
+      <TabHeader 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange} 
+        savedCount={savedIds.length} 
+      />
+
+      {/* 
+        スクロールコンテナ
+        - snap-y: 縦方向のスナップ有効
+        - snap-mandatory: 必ずどこかの要素で止める
+        - h-full: 画面いっぱい
+        - overflow-y-scroll: スクロール許可
+      */}
       <div 
-        ref={scrollContainerRef}
+        ref={containerRef}
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }} // スクロールバー非表示
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {words.map((word) => (
-          <WordCard 
-            key={word.id} 
-            word={word} 
-            isSaved={savedIds.includes(word.id)}
-            onToggleSave={toggleSave}
-          />
-        ))}
-        
-        {/* 最後までいったら... */}
-        <div className="h-[20vh] w-full snap-start flex items-center justify-center bg-slate-950 text-slate-500">
-          <p className="text-sm">All words reviewed! Reload to shuffle.</p>
-        </div>
-      </div>
-
-      {/* ヘッダーナビゲーション (Floating) */}
-      <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-30 pointer-events-none">
-        <div className="pointer-events-auto">
-          <h1 className="text-xl font-bold tracking-tighter text-white drop-shadow-md">
-            Vocab<span className="text-indigo-500">Tok</span>
-          </h1>
-        </div>
-        
-        <button 
-          onClick={() => setIsSavedListOpen(true)}
-          className="pointer-events-auto bg-slate-800/50 backdrop-blur-md p-3 rounded-full text-white border border-white/10 shadow-lg active:scale-95 transition-all"
-        >
-          <List size={20} />
-          {savedIds.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-500 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold">
-              {savedIds.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* 保存リストモーダル */}
-      <AnimatePresence>
-        {isSavedListOpen && (
-          <SavedList 
-            savedWords={savedIds} 
-            words={INITIAL_WORDS} // 元の全データリストを渡す
-            onClose={() => setIsSavedListOpen(false)}
-            onRemove={toggleSave}
-          />
+        {displayWords.length > 0 ? (
+          <>
+            {displayWords.map((word) => (
+              <WordCard 
+                key={word.id} 
+                word={word} 
+                isActive={true} // 簡易的に常にアクティブとしているが、IntersectionObserverを使えばさらに最適化可能
+                isSaved={savedIds.includes(word.id)}
+                onToggleSave={toggleSave}
+              />
+            ))}
+            
+            {/* リスト末尾のメッセージ */}
+            <div className="h-[30vh] w-full snap-start flex items-center justify-center bg-slate-950 text-slate-600">
+              <div className="flex flex-col items-center gap-2">
+                <Sparkles size={20} />
+                <p className="text-xs font-medium uppercase tracking-widest">
+                  {activeTab === 'all' ? "You've seen all words" : "End of saved collection"}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* 保存リストが空の場合の表示 */
+          <EmptyState onBack={() => handleTabChange('all')} />
         )}
-      </AnimatePresence>
+      </div>
 
       <style jsx global>{`
-        /* Chrome, Safari, Edgeでスクロールバーを隠す */
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
