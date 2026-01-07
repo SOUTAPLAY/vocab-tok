@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Settings, X, Moon, Sun, Clock, Sparkles, BookOpen, Layers } from 'lucide-react';
 
-// --- サンプルデータ ---
+// --- サンプルデータ (変更なし) ---
 const INITIAL_WORDS = [
   { id: 1, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
   { id: 2, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
@@ -48,14 +48,14 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
     >
       <motion.div 
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-        className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl ${settings.darkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}
+        className="w-full max-w-sm rounded-lg p-6 shadow-2xl bg-[#3c3c3c] text-white border border-gray-600"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Settings size={20} /> Settings
           </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/10 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -70,117 +70,93 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings }) => {
             type="range" min="0" max="3.0" step="0.1"
             value={settings.revealSpeed}
             onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })}
-            className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-white"
           />
           <div className="flex justify-between text-xs opacity-50 mt-1">
             <span>Fast (0s)</span>
             <span>Slow (3s)</span>
           </div>
         </div>
-
-        {/* ダークモード切り替え */}
-        <div className="flex justify-between items-center p-4 rounded-xl bg-black/5 dark:bg-white/5">
-          <div className="flex items-center gap-3">
-            {settings.darkMode ? <Moon size={20} className="text-indigo-400" /> : <Sun size={20} className="text-orange-400" />}
-            <span className="font-medium">Dark Mode</span>
-          </div>
-          <button 
-            onClick={() => updateSettings({ darkMode: !settings.darkMode })}
-            className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 relative ${settings.darkMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
-          >
-            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-300 ${settings.darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
-          </button>
-        </div>
       </motion.div>
     </motion.div>
   );
 };
 
-// --- 単語カードコンポーネント (大幅修正) ---
+// --- 単語カードコンポーネント (シンプル化) ---
 const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
-  const { darkMode, revealSpeed } = settings;
-  const textColor = darkMode ? 'text-white' : 'text-slate-900';
-  const subTextColor = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const { revealSpeed } = settings;
+  // ご指定の色 #3c3c3c を使用
+  const bgColor = 'bg-[#3c3c3c]';
+  const textColor = 'text-white';
+  const subTextColor = 'text-gray-300';
 
-  // アニメーション設定：amount: 0.5 で「半分見えたら開始」、once: false で「何度でも再生」
   const revealVariants = {
-    hidden: { opacity: 0, filter: "blur(5px)", y: 5 },
+    hidden: { opacity: 0, y: 10 },
     visible: { 
       opacity: 1, 
-      filter: "blur(0px)", 
       y: 0,
       transition: { 
-        delay: revealSpeed, // ここで設定した秒数待つ
-        duration: 0.5 
+        delay: revealSpeed,
+        duration: 0.3
       }
     }
   };
 
   return (
-    <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center transition-colors duration-500 ${darkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
+    <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center ${bgColor} border-b border-gray-700`}>
       
-      {/* 背景装飾 */}
-      <div className={`absolute inset-0 transition-opacity duration-500 ${darkMode ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-900/20 rounded-full blur-[80px]" />
-      </div>
-
       {/* メインコンテンツ */}
       <div className="z-10 flex flex-col items-center w-full px-4 text-center">
         
-        {/* [修正] 品詞バッジ (上に移動) */}
+        {/* 品詞バッジ (シンプルに) */}
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
           viewport={{ once: true }}
-          className={`mb-4 px-3 py-0.5 text-[10px] font-bold border rounded-full uppercase tracking-wider ${
-            darkMode 
-              ? 'text-indigo-300 border-indigo-500/30 bg-indigo-950/30' 
-              : 'text-indigo-600 border-indigo-200 bg-indigo-50'
-          }`}
+          className="mb-4 px-3 py-1 text-xs font-bold border border-gray-400 rounded bg-transparent text-gray-300 uppercase tracking-wider"
         >
           {word.pos}
         </motion.div>
 
-        {/* [修正] 英単語 (太字を削除し medium に) */}
+        {/* 英単語 (白文字) */}
         <motion.h2 
           initial={{ scale: 0.95, opacity: 0 }}
           whileInView={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.3 }}
           viewport={{ once: true }}
-          className={`text-6xl md:text-7xl font-medium tracking-tight mb-3 ${textColor} drop-shadow-lg`}
+          className={`text-6xl md:text-7xl font-medium tracking-tight mb-2 ${textColor}`}
         >
           {word.en}
         </motion.h2>
 
-        {/* [修正] 日本語訳 (距離を近づけ、カードごとの独立した遅延アニメーションを適用) */}
+        {/* 日本語訳 */}
         <div className="h-16 flex items-center justify-center">
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ amount: 0.5, once: false }} // 重要: 毎回リセット
+            viewport={{ amount: 0.5, once: false }}
             variants={revealVariants}
           >
-            <p className={`text-2xl font-bold ${textColor} drop-shadow-md`}>
+            <p className={`text-2xl font-bold ${textColor}`}>
               {word.ja}
             </p>
           </motion.div>
         </div>
 
-        {/* 例文セクション (画面下部に配置・同じタイミングで表示) */}
+        {/* 例文セクション (装飾なし) */}
         <div className="absolute bottom-24 w-full px-6 max-w-md">
            <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ amount: 0.5, once: false }} // 重要: 毎回リセット
-            variants={revealVariants} // 日本語訳と同じタイミング設定を使用
-            className={`p-4 rounded-xl border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
+            viewport={{ amount: 0.5, once: false }}
+            variants={revealVariants}
+            className="p-4 rounded border border-gray-600 bg-black/20"
           >
             <p className={`text-lg font-medium leading-snug mb-2 ${textColor}`}>
               "{word.exEn}"
             </p>
-            <p className={`text-xs ${subTextColor}`}>
+            <p className={`text-sm ${subTextColor}`}>
               {word.exJa}
             </p>
           </motion.div>
@@ -193,15 +169,15 @@ const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
           onClick={() => onToggleSave(word.id)}
           className="group flex flex-col items-center gap-1 cursor-pointer"
         >
-          <div className={`p-3.5 rounded-full transition-all duration-300 shadow-xl ${
-            isSaved ? 'bg-rose-500/20' : (darkMode ? 'bg-slate-800/60' : 'bg-white/80')
-          } backdrop-blur-md`}>
+          <div className={`p-3 rounded-full transition-all duration-200 ${
+            isSaved ? 'bg-white/10' : 'bg-transparent'
+          }`}>
             <Heart 
-              size={28} 
-              className={`transition-all duration-300 ${isSaved ? 'fill-rose-500 text-rose-500 scale-110' : (darkMode ? 'text-white' : 'text-slate-800')}`} 
+              size={32} 
+              className={`transition-all duration-200 ${isSaved ? 'fill-white text-white' : 'text-gray-400'}`} 
             />
           </div>
-          <span className={`text-[10px] font-bold drop-shadow-md ${textColor}`}>Save</span>
+          <span className="text-[10px] font-bold text-gray-400">Save</span>
         </button>
       </div>
     </div>
@@ -209,30 +185,26 @@ const WordCard = ({ word, isSaved, onToggleSave, settings }) => {
 };
 
 // --- タブヘッダー & 設定トリガー ---
-const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings, darkMode }) => {
+const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings }) => {
   return (
     <div className="fixed top-0 left-0 w-full z-50 px-4 pt-6 flex justify-between items-start pointer-events-none">
       
       {/* 左上: 設定ボタン */}
       <button 
         onClick={onOpenSettings}
-        className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${
-          darkMode 
-            ? 'bg-slate-800/50 text-white border-white/10 hover:bg-slate-700/50' 
-            : 'bg-white/80 text-slate-800 border-black/5 hover:bg-white'
-        }`}
+        className="pointer-events-auto p-3 rounded-full bg-[#3c3c3c] border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-all shadow-lg"
       >
         <Settings size={20} />
       </button>
 
       {/* 中央: タブ切り替え */}
-      <div className={`pointer-events-auto flex items-center backdrop-blur-md rounded-full p-1 border shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6 ${darkMode ? 'bg-slate-800/60 border-white/10' : 'bg-white/90 border-black/5'}`}>
+      <div className="pointer-events-auto flex items-center bg-[#3c3c3c] rounded-full p-1 border border-gray-600 shadow-xl mx-auto absolute left-1/2 -translate-x-1/2 top-6">
         <button
           onClick={() => onTabChange('all')}
           className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'all' 
-              ? (darkMode ? 'bg-slate-700 text-white shadow-md' : 'bg-slate-100 text-slate-900 shadow-md')
-              : (darkMode ? 'text-slate-400' : 'text-slate-500')
+              ? 'bg-gray-200 text-[#3c3c3c]' 
+              : 'text-gray-400 hover:text-white'
           }`}
         >
           <Layers size={14} /> All
@@ -241,16 +213,15 @@ const Header = ({ activeTab, onTabChange, savedCount, onOpenSettings, darkMode }
           onClick={() => onTabChange('saved')}
           className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'saved' 
-              ? 'bg-rose-500 text-white shadow-md' 
-              : (darkMode ? 'text-slate-400' : 'text-slate-500')
+              ? 'bg-gray-200 text-[#3c3c3c]' 
+              : 'text-gray-400 hover:text-white'
           }`}
         >
-          <Heart size={14} className={activeTab === 'saved' ? 'fill-white' : ''} />
+          <Heart size={14} className={activeTab === 'saved' ? 'fill-[#3c3c3c]' : ''} />
           {savedCount > 0 && <span className="opacity-90">{savedCount}</span>}
         </button>
       </div>
 
-      {/* 右上のスペース確保用ダミー */}
       <div className="w-10"></div>
     </div>
   );
@@ -264,10 +235,10 @@ const App = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  // 設定用State (LocalStorage永続化)
+  // 設定 (ダークモード切り替えは廃止)
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('appSettings');
-    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, darkMode: true };
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5 };
   });
 
   useEffect(() => {
@@ -302,14 +273,14 @@ const App = () => {
   }, [activeTab, allWords, savedIds]);
 
   return (
-    <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${settings.darkMode ? 'bg-black' : 'bg-slate-100'}`}>
+    // 背景色を指定色 #3c3c3c に固定
+    <div className="relative w-full h-[100dvh] font-sans overflow-hidden bg-[#3c3c3c] text-white">
       
       <Header 
         activeTab={activeTab} 
         onTabChange={handleTabChange} 
         savedCount={savedIds.length}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        darkMode={settings.darkMode}
       />
 
       <div 
@@ -323,13 +294,12 @@ const App = () => {
               <WordCard 
                 key={word.id} 
                 word={word} 
-                // isActive={true} は削除しました。各カード自身で判定します。
                 isSaved={savedIds.includes(word.id)}
                 onToggleSave={toggleSave}
                 settings={settings}
               />
             ))}
-            <div className={`h-[30vh] w-full snap-start flex items-center justify-center ${settings.darkMode ? 'bg-slate-950 text-slate-600' : 'bg-slate-100 text-slate-400'}`}>
+            <div className="h-[30vh] w-full snap-start flex items-center justify-center bg-[#3c3c3c] text-gray-500 border-t border-gray-700">
               <div className="flex flex-col items-center gap-2">
                 <Sparkles size={20} />
                 <p className="text-xs font-medium uppercase tracking-widest">End of list</p>
@@ -337,12 +307,12 @@ const App = () => {
             </div>
           </>
         ) : (
-          <div className={`h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 ${settings.darkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${settings.darkMode ? 'bg-slate-900' : 'bg-slate-200'}`}>
-              <BookOpen size={40} className="opacity-50" />
+          <div className="h-[100dvh] w-full flex flex-col items-center justify-center snap-start px-6 bg-[#3c3c3c] text-white">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6 bg-white/10">
+              <BookOpen size={40} className="text-gray-400" />
             </div>
             <h3 className="text-2xl font-bold mb-2">No saved words</h3>
-            <button onClick={() => handleTabChange('all')} className="mt-4 text-indigo-500 hover:underline">Back to All Words</button>
+            <button onClick={() => handleTabChange('all')} className="mt-4 text-gray-300 hover:text-white underline decoration-gray-500">Back to All Words</button>
           </div>
         )}
       </div>
