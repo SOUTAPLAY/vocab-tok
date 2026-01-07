@@ -23,7 +23,6 @@ const THEMES = {
   white: { id: 'white', label: 'Polar White', bgClass: 'bg-slate-50', textMain: 'text-slate-900', textSub: 'text-slate-500', accent: 'text-indigo-600', badge: 'bg-white text-indigo-600 border-indigo-200 shadow-sm', cardBorder: 'border-slate-200', buttonBg: 'bg-white shadow-md border border-slate-100', isDark: false, hasEffects: false },
 };
 
-// シャッフル関数
 const shuffleArray = (array) => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -155,7 +154,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                   <label className="flex justify-between items-center mb-2 font-medium"><span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span><span className="text-sm font-mono">{settings.revealSpeed}s</span></label>
                   <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                 </div>
-                {/* シャッフル切り替えスイッチ */}
                 <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <Shuffle size={18} className="opacity-70" />
@@ -211,7 +209,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
               ))}
             </div>
           )}
-          {/* 非表示リストタブ */}
           {activeTab === 'hidden' && (
             <div className="space-y-4">
               <p className="text-xs opacity-60 mb-2">Words you've hidden from the feed.</p>
@@ -222,12 +219,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <p className="font-bold text-sm">{word.en}</p>
                     <p className="text-xs opacity-60 truncate">{word.ja}</p>
                   </div>
-                  <button 
-                    onClick={() => onUnhideWord(word.id)}
-                    className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-1"
-                  >
-                    <RefreshCcw size={12} /> Unhide
-                  </button>
+                  <button onClick={() => onUnhideWord(word.id)} className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-1"><RefreshCcw size={12} /> Unhide</button>
                 </div>
               ))}
             </div>
@@ -238,11 +230,40 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
   );
 };
 
-// --- 単語カード ---
+// --- 単語カード (アニメーション修正) ---
 const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings }) => {
   const { revealSpeed, theme } = settings;
   const t = THEMES[theme] || THEMES.stylish;
+  
+  // 非表示時のローカルアニメーションステート
+  const [isHiding, setIsHiding] = useState(false);
+
+  const handleHideClick = () => {
+    setIsHiding(true); // アニメーション開始
+    // アニメーション完了後に実際にデータを更新
+    setTimeout(() => {
+      onHideWord(word.id);
+    }, 400); // 0.4s duration
+  };
+
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
+
+  // 画面から消えるアニメーション
+  if (isHiding) {
+    return (
+      <div className={`h-[100dvh] w-full flex-shrink-0 flex items-center justify-center transition-all duration-500 ease-in-out bg-black`}>
+        <motion.div 
+          initial={{ scale: 1, opacity: 1 }}
+          animate={{ scale: 0.8, opacity: 0, y: -50 }}
+          transition={{ duration: 0.4 }}
+          className="text-white font-bold flex flex-col items-center gap-2"
+        >
+          <EyeOff size={40} className="text-indigo-400" />
+          <span>Hiding...</span>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className={`h-[100dvh] w-full flex-shrink-0 snap-start snap-always relative overflow-hidden flex flex-col justify-center items-center transition-colors duration-500 ${t.bgClass} border-b ${t.cardBorder}`}>
@@ -273,8 +294,8 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
           </div>
           <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Add</span>
         </button>
-        {/* Hide Button (New) */}
-        <button onClick={() => { if(window.confirm('Hide this word from feed?')) onHideWord(word.id); }} className="group flex flex-col items-center gap-1 cursor-pointer">
+        {/* Hide Button (No Confirm, Just Action) */}
+        <button onClick={handleHideClick} className="group flex flex-col items-center gap-1 cursor-pointer">
           <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} hover:bg-gray-500/20`}>
             <EyeOff size={24} className={`transition-all duration-300 ${t.isDark ? 'text-white opacity-50 hover:opacity-100' : 'text-slate-700 opacity-50 hover:opacity-100'}`} />
           </div>
@@ -332,7 +353,7 @@ const App = () => {
   const [playlists, setPlaylists] = useState([]);
   const [allWords, setAllWords] = useState([]);
   const [savedIds, setSavedIds] = useState([]);
-  const [hiddenIds, setHiddenIds] = useState([]); // 非表示単語IDリスト
+  const [hiddenIds, setHiddenIds] = useState([]);
   const [playlistAssignments, setPlaylistAssignments] = useState({});
   const [activeTab, setActiveTab] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -340,12 +361,7 @@ const App = () => {
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
   const containerRef = useRef(null);
-  
-  // 設定に isShuffle を追加
-  const [settings, setSettings] = useState(() => { 
-    const saved = localStorage.getItem('appSettings'); 
-    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true }; 
-  });
+  const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true }; });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
@@ -359,17 +375,12 @@ const App = () => {
     if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
     else setPlaylists([]);
 
-    // Words
     const savedWords = localStorage.getItem('myVocabularyData');
     if (savedWords) {
       const parsedWords = JSON.parse(savedWords);
-      const fixedWords = parsedWords.map(w => ({
-        ...w, 
-        sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID 
-      }));
+      const fixedWords = parsedWords.map(w => ({ ...w, sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID }));
       setAllWords(fixedWords);
     } else { 
-      // 初期状態ではシャッフルして保存（デフォルトがONなら）
       const initial = shuffleArray(INITIAL_WORDS); 
       setAllWords(initial); 
       localStorage.setItem('myVocabularyData', JSON.stringify(initial)); 
@@ -378,7 +389,6 @@ const App = () => {
     const savedLikes = localStorage.getItem('myVocabularySaved');
     if (savedLikes) setSavedIds(JSON.parse(savedLikes));
     
-    // Hidden Words読み込み
     const savedHidden = localStorage.getItem('vocabHidden');
     if (savedHidden) setHiddenIds(JSON.parse(savedHidden));
     
@@ -401,12 +411,8 @@ const App = () => {
   const toggleSourceActive = (sourceId) => setSources(prev => prev.map(s => s.id === sourceId ? { ...s, active: !s.active } : s));
   const handleImportData = (newSourceId, sourceName, newWords) => {
     setSources(prev => [...prev, { id: newSourceId, name: sourceName, active: true }]);
-    // 追加時も設定に合わせてシャッフルするか決める
-    if (settings.isShuffle) {
-      setAllWords(prev => shuffleArray([...prev, ...newWords]));
-    } else {
-      setAllWords(prev => [...prev, ...newWords]);
-    }
+    if (settings.isShuffle) setAllWords(prev => shuffleArray([...prev, ...newWords]));
+    else setAllWords(prev => [...prev, ...newWords]);
   };
 
   const handleCreatePlaylist = (name) => {
@@ -429,41 +435,25 @@ const App = () => {
     });
   };
 
-  // Hide/Unhide機能
   const handleHideWord = (id) => setHiddenIds(prev => [...prev, id]);
   const handleUnhideWord = (id) => setHiddenIds(prev => prev.filter(hid => hid !== id));
 
   const displayWords = useMemo(() => {
-    // 1. アクティブなSourceの単語
     const activeSourceIds = sources.filter(s => s.active).map(s => s.id);
     let basePool = allWords.filter(w => activeSourceIds.includes(w.sourceId));
-
-    // 2. Hiddenを除外
     basePool = basePool.filter(w => !hiddenIds.includes(w.id));
 
-    // 3. シャッフル制御 (レンダリング順序)
-    // ReactのStateに保存されている allWords 自体の順序が変わるわけではないが、
-    // ここでID順にソートするか、allWords(State)の順序(=Shuffleならシャッフル済み)を使うか分岐
-    if (!settings.isShuffle) {
-      // IDが数値なら数値順、文字列なら文字順でソート（インポート順を維持したい場合は別途orderプロパティが必要だが簡易的にID順）
-      basePool.sort((a, b) => (a.id > b.id ? 1 : -1));
-    }
+    if (!settings.isShuffle) basePool.sort((a, b) => (a.id > b.id ? 1 : -1));
 
-    // 4. タブフィルタ
-    if (activeTab === 'all') {
-      return basePool;
-    } else if (activeTab === 'saved') {
-      return basePool.filter(w => savedIds.includes(w.id));
-    } else {
+    if (activeTab === 'all') return basePool;
+    else if (activeTab === 'saved') return basePool.filter(w => savedIds.includes(w.id));
+    else {
       const assignedWordIds = playlistAssignments[activeTab] || [];
       return basePool.filter(w => assignedWordIds.includes(w.id));
     }
   }, [activeTab, allWords, sources, savedIds, playlistAssignments, hiddenIds, settings.isShuffle]);
 
-  const hiddenWordObjects = useMemo(() => {
-    return allWords.filter(w => hiddenIds.includes(w.id));
-  }, [allWords, hiddenIds]);
-
+  const hiddenWordObjects = useMemo(() => allWords.filter(w => hiddenIds.includes(w.id)), [allWords, hiddenIds]);
   const currentTheme = THEMES[settings.theme] || THEMES.stylish;
 
   return (
