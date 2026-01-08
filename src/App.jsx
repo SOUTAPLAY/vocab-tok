@@ -33,9 +33,19 @@ const shuffleArray = (array) => {
 };
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
 
-// 音声再生マネージャ (カスタムフック化せず、シンプルな関数として定義)
+// 更新されたJSONサンプルフォーマット
+const SAMPLE_JSON_FORMAT = `[
+  {
+    "en": "example",
+    "pos": "名詞",
+    "ja": "例",
+    "exEn": "This is an example.",
+    "exJa": "これは例です。"
+  }
+]`;
+
+// 音声再生マネージャ
 const speakUtterance = (text, lang, rate) => {
   return new Promise((resolve, reject) => {
     if (!window.speechSynthesis) {
@@ -255,8 +265,9 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <span className="text-xs font-bold opacity-50">JSON FORMAT SAMPLE</span>
                     <button onClick={copyFormat} className="text-xs text-indigo-400 hover:underline flex items-center gap-1"><Copy size={10} /> Copy</button>
                     </div>
-                    <div className={`p-3 rounded-lg text-[10px] font-mono leading-relaxed opacity-70 ${t.isDark ? 'bg-black/30' : 'bg-slate-100'}`}>
-                    <pre>{SAMPLE_JSON_FORMAT}</pre>
+                    {/* JSONサンプル表示の修正部分 */}
+                    <div className={`p-3 rounded-lg text-[10px] font-mono leading-relaxed opacity-70 overflow-x-auto whitespace-pre ${t.isDark ? 'bg-black/30' : 'bg-slate-100'}`}>
+                      {SAMPLE_JSON_FORMAT}
                     </div>
                 </div>
               </div>
@@ -307,19 +318,15 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
   
-  // 再生中フラグ管理 (モーダルが開いても止めないためにStateではなくRefで管理するか、useEffectの依存関係を工夫する)
-  // 今回は「モーダルが開いている間も読み上げを止めない」ため、
-  // isActive が true であれば読み上げを開始し、isActive が false になるまで（スワイプされるまで）キャンセルしないようにする。
-  
   const isSpeakingRef = useRef(false);
 
   // 連続再生実行関数
   const playSequence = async () => {
     if (!window.speechSynthesis) return;
-    if (isSpeakingRef.current) return; // すでに再生中なら何もしない
+    if (isSpeakingRef.current) return; 
     
     isSpeakingRef.current = true;
-    window.speechSynthesis.cancel(); // 前のカードの残りを消す
+    window.speechSynthesis.cancel(); 
 
     try {
       // 1. 英単語
@@ -334,13 +341,12 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
       await speakUtterance(word.exEn, 'en-US', speechRate);
       if(!isSpeakingRef.current) return;
 
-      // 4. 日本語例文（追加！）
+      // 4. 日本語例文
       await speakUtterance(word.exJa, 'ja-JP', speechRate);
       
     } catch (e) {
       console.error(e);
     } finally {
-      // 完了時の処理
       if(isSpeakingRef.current) {
         if(autoScroll) onPlaybackEnd();
         isSpeakingRef.current = false;
@@ -350,23 +356,17 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
 
   useEffect(() => {
     if (isActive && autoSpeak) {
-      // 少し遅延させて開始（スワイプの安定待ち）
       const timer = setTimeout(() => {
         playSequence();
       }, 500);
       
       return () => {
         clearTimeout(timer);
-        // コンポーネントがアンマウント、またはisActiveがfalseになった時だけキャンセル
-        // 設定モーダルが開いてもこのコンポーネントはマウントされたままなのでキャンセルされないはずだが、
-        // 親のレンダリングで再生成される可能性があるため、App側でMemo化が必要だが、
-        // ここでは「isActiveがfalseになったとき」に明示的にフラグを折る。
         isSpeakingRef.current = false;
         window.speechSynthesis.cancel();
       };
     }
   }, [isActive, word.id, autoSpeak]); 
-  // ↑ speechRateやautoScrollを依存配列から外すことで、再生中に設定を変えてもリセットされないようにする（副作用として即時反映はされないが、次の単語から反映される）
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -374,7 +374,6 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   };
 
   const handleManualSpeak = () => {
-    // 手動再生は強制的にリスタート
     isSpeakingRef.current = false; 
     playSequence();
   };
@@ -496,7 +495,6 @@ const App = () => {
   const [activeWordId, setActiveWordId] = useState(null);
   const containerRef = useRef(null);
   
-  // 設定に speechRate と autoScroll を追加 (初期値 1.0 に修正)
   const [settings, setSettings] = useState(() => { 
     const saved = localStorage.getItem('appSettings'); 
     return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false }; 
