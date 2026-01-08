@@ -386,7 +386,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
   
-  // 0: Initial (EN Only), 1: Show JA, 2: Show Ex
+  // 0: Initial (EN Only), 1: Show JA & Ex (Merged)
   const [revealStage, setRevealStage] = useState(0);
   
   const isSpeakingRef = useRef(false);
@@ -400,7 +400,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     }
   }, [isActive]);
 
-  // 連続再生実行関数
+  // 連続再生実行関数 (同期型: 最低待機時間保証)
   const playSequence = async () => {
     if (!window.speechSynthesis) return;
     if (isSpeakingRef.current) return; 
@@ -428,37 +428,18 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
       
       if (!isSpeakingRef.current) return;
 
-      // 2. 日本語 表示
+      // 2. 日本語 & 例文 表示 (同時)
       setRevealStage(1);
 
-      // 3. 日本語 読み上げ & 待機
-      if (syncSpeech) {
-        if (autoSpeak) {
-           await Promise.all([
-              speakUtterance(word.ja, 'ja-JP', speechRate),
-              wait(revealSpeed * 1000)
-           ]);
-        } else {
-           await wait(revealSpeed * 1000);
-        }
-      } else {
-         if (autoSpeak) speakUtterance(word.ja, 'ja-JP', speechRate);
-         await wait(revealSpeed * 1000);
-      }
-
-      if (!isSpeakingRef.current) return;
-
-      // 4. 例文 表示
-      setRevealStage(2);
-
-      // 5. 例文 読み上げ
+      // 3. 残りの読み上げ (JA -> ExEn -> ExJa)
       if (autoSpeak) {
-        // 例文はSyncモードにかかわらず、最後まで読んでからAutoScrollしたい
-        // Sync OFFでも「表示は完了した」後の「スクロール」は音声終了を待ちたいなら await する。
-        // ここでは「Sync OFFなら表示完了＝処理完了」と捉えることもできるが、
-        // 読み上げ途中でスクロールされると切れるので、最後だけは待つのが自然。
+        // ここからは一気に読み上げる
+        await speakUtterance(word.ja, 'ja-JP', speechRate);
+        if (!isSpeakingRef.current) return;
+
         await speakUtterance(word.exEn, 'en-US', speechRate);
         if (!isSpeakingRef.current) return;
+
         await speakUtterance(word.exJa, 'ja-JP', speechRate);
       }
       
@@ -474,14 +455,15 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
 
   useEffect(() => {
     if (isActive) {
+      // isActiveになったら即座にシーケンス開始（最初のDelayはplaySequence内で制御）
       const timer = setTimeout(() => {
         playSequence();
-      }, 300); 
+      }, 300); // カードスナップの安定待ち
       return () => {
         clearTimeout(timer);
       };
     }
-  }, [isActive, word.id, autoSpeak, syncSpeech]); // 設定変更で再実行
+  }, [isActive, word.id, autoSpeak, syncSpeech]); 
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -494,8 +476,8 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     setTimeout(() => playSequence(), 100);
   };
 
-  const showJa = revealStage >= 1;
-  const showEx = revealStage >= 2;
+  // 修正: 日本語訳と例文は同時に出る (Stage 1以上なら両方出る)
+  const showContent = revealStage >= 1;
 
   // Text Animation OFFなら duration: 0
   const actualAnim = {
@@ -522,7 +504,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
         <div className="h-16 flex items-center justify-center">
           <motion.div 
             initial="hidden" 
-            animate={showJa ? "visible" : "hidden"} 
+            animate={showContent ? "visible" : "hidden"} 
             variants={actualAnim}
           >
             <p className={`text-2xl font-bold ${t.textMain} drop-shadow-md`}>{word.ja}</p>
@@ -533,7 +515,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
         <div className="absolute bottom-24 w-full px-6 max-w-md">
            <motion.div 
              initial="hidden" 
-             animate={showEx ? "visible" : "hidden"} 
+             animate={showContent ? "visible" : "hidden"} 
              variants={actualAnim} 
              className={`p-4 rounded-xl border backdrop-blur-sm ${t.isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
             >
