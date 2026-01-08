@@ -35,35 +35,24 @@ const shuffleArray = (array) => {
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
 
-// 音声再生関数 (Promiseラッパー)
-const speakText = (text, lang, rate) => {
-  return new Promise((resolve) => {
+// 音声再生マネージャ (カスタムフック化せず、シンプルな関数として定義)
+const speakUtterance = (text, lang, rate) => {
+  return new Promise((resolve, reject) => {
     if (!window.speechSynthesis) {
       resolve();
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = rate; 
-    utterance.onend = resolve;
-    utterance.onerror = resolve; // エラーでも止まらないように
+    utterance.rate = rate;
+    
+    // エラーハンドリングと終了処理
+    utterance.onend = () => resolve();
+    utterance.onerror = (e) => resolve(); // エラーでも止まらないようにresolve
+
     window.speechSynthesis.speak(utterance);
   });
 };
-
-// 連続再生用関数
-const playWordSequence = async (word, rate) => {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel(); 
-
-  // 英単語
-  await speakText(word.en, 'en-US', rate);
-  // 日本語訳
-  await speakText(word.ja, 'ja-JP', rate); 
-  // 英語例文
-  await speakText(word.exEn, 'en-US', rate);
-};
-
 
 // --- プレイリスト追加ボトムシート ---
 const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlistAssignments, onToggleAssignment, onCreatePlaylist, themeKey }) => {
@@ -214,7 +203,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
             </div>
           )}
 
-          {/* 新しいSPEEDタブ */}
+          {/* SPEEDタブ */}
           {activeTab === 'speed' && (
              <div className="space-y-8">
               <div>
@@ -317,30 +306,67 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   const { revealSpeed, theme, autoSpeak, speechRate, autoScroll } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
+  
+  // 再生中フラグ管理 (モーダルが開いても止めないためにStateではなくRefで管理するか、useEffectの依存関係を工夫する)
+  // 今回は「モーダルが開いている間も読み上げを止めない」ため、
+  // isActive が true であれば読み上げを開始し、isActive が false になるまで（スワイプされるまで）キャンセルしないようにする。
+  
+  const isSpeakingRef = useRef(false);
 
-  // 画面に表示されたら読み上げ（isActiveがtrueになった時）
-  useEffect(() => {
-    let isCancelled = false;
+  // 連続再生実行関数
+  const playSequence = async () => {
+    if (!window.speechSynthesis) return;
+    if (isSpeakingRef.current) return; // すでに再生中なら何もしない
     
-    if (isActive && autoSpeak) {
-      const timer = setTimeout(async () => {
-        if(isCancelled) return;
-        
-        await playWordSequence(word, speechRate);
-        
-        // 読み上げ完了後、オートスクロールがONなら親に通知
-        if (!isCancelled && autoScroll) {
-          onPlaybackEnd();
-        }
-      }, 500);
+    isSpeakingRef.current = true;
+    window.speechSynthesis.cancel(); // 前のカードの残りを消す
 
+    try {
+      // 1. 英単語
+      await speakUtterance(word.en, 'en-US', speechRate);
+      if(!isSpeakingRef.current) return;
+      
+      // 2. 日本語訳
+      await speakUtterance(word.ja, 'ja-JP', speechRate);
+      if(!isSpeakingRef.current) return;
+      
+      // 3. 英語例文
+      await speakUtterance(word.exEn, 'en-US', speechRate);
+      if(!isSpeakingRef.current) return;
+
+      // 4. 日本語例文（追加！）
+      await speakUtterance(word.exJa, 'ja-JP', speechRate);
+      
+    } catch (e) {
+      console.error(e);
+    } finally {
+      // 完了時の処理
+      if(isSpeakingRef.current) {
+        if(autoScroll) onPlaybackEnd();
+        isSpeakingRef.current = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isActive && autoSpeak) {
+      // 少し遅延させて開始（スワイプの安定待ち）
+      const timer = setTimeout(() => {
+        playSequence();
+      }, 500);
+      
       return () => {
-        isCancelled = true;
         clearTimeout(timer);
+        // コンポーネントがアンマウント、またはisActiveがfalseになった時だけキャンセル
+        // 設定モーダルが開いてもこのコンポーネントはマウントされたままなのでキャンセルされないはずだが、
+        // 親のレンダリングで再生成される可能性があるため、App側でMemo化が必要だが、
+        // ここでは「isActiveがfalseになったとき」に明示的にフラグを折る。
+        isSpeakingRef.current = false;
         window.speechSynthesis.cancel();
       };
     }
-  }, [isActive, autoSpeak, word, speechRate, autoScroll, onPlaybackEnd]);
+  }, [isActive, word.id, autoSpeak]); 
+  // ↑ speechRateやautoScrollを依存配列から外すことで、再生中に設定を変えてもリセットされないようにする（副作用として即時反映はされないが、次の単語から反映される）
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -348,7 +374,9 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   };
 
   const handleManualSpeak = () => {
-    playWordSequence(word, speechRate);
+    // 手動再生は強制的にリスタート
+    isSpeakingRef.current = false; 
+    playSequence();
   };
 
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
@@ -468,7 +496,7 @@ const App = () => {
   const [activeWordId, setActiveWordId] = useState(null);
   const containerRef = useRef(null);
   
-  // 設定に speechRate と autoScroll を追加
+  // 設定に speechRate と autoScroll を追加 (初期値 1.0 に修正)
   const [settings, setSettings] = useState(() => { 
     const saved = localStorage.getItem('appSettings'); 
     return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false }; 
@@ -477,7 +505,6 @@ const App = () => {
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
-  // オートスクロール機能
   const scrollToNext = () => {
     if (containerRef.current) {
       const h = window.innerHeight;
