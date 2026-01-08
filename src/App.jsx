@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, VolumeX } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, PlayCircle, FastForward } from 'lucide-react';
 
 // --- 初期データ ---
 const INITIAL_SOURCE_ID = 'sample-source';
@@ -35,35 +35,33 @@ const shuffleArray = (array) => {
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
 
-// 音声合成ユーティリティ
-const speakText = (text, lang = 'en-US') => {
-  if (!window.speechSynthesis) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
-  utterance.rate = 1.0; 
-  window.speechSynthesis.speak(utterance);
+// 音声再生関数 (Promiseラッパー)
+const speakText = (text, lang, rate) => {
+  return new Promise((resolve) => {
+    if (!window.speechSynthesis) {
+      resolve();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = rate; 
+    utterance.onend = resolve;
+    utterance.onerror = resolve; // エラーでも止まらないように
+    window.speechSynthesis.speak(utterance);
+  });
 };
 
-// 連続再生用
-const playWordSequence = (word) => {
+// 連続再生用関数
+const playWordSequence = async (word, rate) => {
   if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel(); // 前の音声をキャンセル
+  window.speechSynthesis.cancel(); 
 
-  const speak = (text, lang) => {
-    return new Promise((resolve) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = lang;
-      u.onend = resolve;
-      window.speechSynthesis.speak(u);
-    });
-  };
-
-  // 非同期で順番に再生
-  (async () => {
-    await speak(word.en, 'en-US'); // 英語単語
-    await speak(word.ja, 'ja-JP'); // 日本語訳
-    await speak(word.exEn, 'en-US'); // 英語例文
-  })();
+  // 英単語
+  await speakText(word.en, 'en-US', rate);
+  // 日本語訳
+  await speakText(word.ja, 'ja-JP', rate); 
+  // 英語例文
+  await speakText(word.exEn, 'en-US', rate);
 };
 
 
@@ -162,9 +160,9 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
           <h2 className="font-bold flex items-center gap-2"><Settings size={18} /> Preferences</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors"><X size={18} /></button>
         </div>
-        <div className="flex border-b border-gray-500/10">
-          {['settings', 'data', 'playlists', 'hidden'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
+        <div className="flex border-b border-gray-500/10 overflow-x-auto">
+          {['settings', 'speed', 'data', 'playlists', 'hidden'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[60px] py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
           ))}
         </div>
         <div className="p-6 overflow-y-auto flex-1">
@@ -182,10 +180,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                 </div>
               </div>
               <div className="space-y-4">
-                <div>
-                  <label className="flex justify-between items-center mb-2 font-medium"><span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span><span className="text-sm font-mono">{settings.revealSpeed}s</span></label>
-                  <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
-                </div>
                 {/* シャッフル切り替え */}
                 <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
@@ -206,9 +200,47 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.autoSpeak ? 'translate-x-6' : 'translate-x-0'}`} />
                   </button>
                 </div>
+                {/* 自動送り切り替え */}
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <FastForward size={18} className="opacity-70" />
+                    <span className="text-sm font-bold">Auto-Scroll</span>
+                  </div>
+                  <button onClick={() => updateSettings({ autoScroll: !settings.autoScroll })} className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.autoScroll ? 'bg-indigo-500' : 'bg-gray-500/30'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.autoScroll ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
+
+          {/* 新しいSPEEDタブ */}
+          {activeTab === 'speed' && (
+             <div className="space-y-8">
+              <div>
+                <label className="flex justify-between items-center mb-4 font-medium">
+                  <span className="flex items-center gap-2 text-sm opacity-70"><Clock size={16} /> Reveal Speed</span>
+                  <span className="text-sm font-mono font-bold bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded">{settings.revealSpeed}s</span>
+                </label>
+                <div className="relative h-10 flex items-center">
+                  <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                </div>
+                <p className="text-[10px] opacity-50 mt-1">Delay before showing Japanese translation.</p>
+              </div>
+
+              <div>
+                <label className="flex justify-between items-center mb-4 font-medium">
+                  <span className="flex items-center gap-2 text-sm opacity-70"><Mic size={16} /> Speech Rate</span>
+                  <span className="text-sm font-mono font-bold bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded">{settings.speechRate}x</span>
+                </label>
+                <div className="relative h-10 flex items-center">
+                  <input type="range" min="0.5" max="2.0" step="0.1" value={settings.speechRate} onChange={(e) => updateSettings({ speechRate: parseFloat(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                </div>
+                 <p className="text-[10px] opacity-50 mt-1">Speed of text-to-speech voice.</p>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'data' && (
             <div className="space-y-6">
               <div className="space-y-3">
@@ -281,24 +313,34 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
 };
 
 // --- 単語カード (自動読み上げ対応) ---
-const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive }) => {
-  const { revealSpeed, theme, autoSpeak } = settings;
+const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive, onPlaybackEnd }) => {
+  const { revealSpeed, theme, autoSpeak, speechRate, autoScroll } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
 
   // 画面に表示されたら読み上げ（isActiveがtrueになった時）
   useEffect(() => {
+    let isCancelled = false;
+    
     if (isActive && autoSpeak) {
-      // 少しだけ待ってから再生（スワイプの完了を待つ感覚）
-      const timer = setTimeout(() => {
-        playWordSequence(word);
+      const timer = setTimeout(async () => {
+        if(isCancelled) return;
+        
+        await playWordSequence(word, speechRate);
+        
+        // 読み上げ完了後、オートスクロールがONなら親に通知
+        if (!isCancelled && autoScroll) {
+          onPlaybackEnd();
+        }
       }, 500);
+
       return () => {
+        isCancelled = true;
         clearTimeout(timer);
-        window.speechSynthesis.cancel(); // 画面から消えたら停止
+        window.speechSynthesis.cancel();
       };
     }
-  }, [isActive, autoSpeak, word]);
+  }, [isActive, autoSpeak, word, speechRate, autoScroll, onPlaybackEnd]);
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -306,7 +348,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   };
 
   const handleManualSpeak = () => {
-    playWordSequence(word);
+    playWordSequence(word, speechRate);
   };
 
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
@@ -423,16 +465,26 @@ const App = () => {
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
   
-  // 現在表示中の単語ID（IntersectionObserverで判定）
   const [activeWordId, setActiveWordId] = useState(null);
-  
   const containerRef = useRef(null);
-  const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false }; });
+  
+  // 設定に speechRate と autoScroll を追加
+  const [settings, setSettings] = useState(() => { 
+    const saved = localStorage.getItem('appSettings'); 
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false }; 
+  });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
-  // スクロール検知でアクティブな単語を判定
+  // オートスクロール機能
+  const scrollToNext = () => {
+    if (containerRef.current) {
+      const h = window.innerHeight;
+      containerRef.current.scrollBy({ top: h, behavior: 'smooth' });
+    }
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -443,14 +495,12 @@ const App = () => {
           }
         });
       },
-      { root: containerRef.current, threshold: 0.6 } // 60%見えたらアクティブとみなす
+      { root: containerRef.current, threshold: 0.6 }
     );
-
     const cards = document.querySelectorAll('.word-card');
     cards.forEach(card => observer.observe(card));
-
     return () => observer.disconnect();
-  }, [allWords, activeTab, hiddenIds]); // 単語リストが変わったら再監視
+  }, [allWords, activeTab, hiddenIds]);
 
   useEffect(() => {
     const savedSources = localStorage.getItem('vocabSources');
@@ -558,6 +608,7 @@ const App = () => {
                   onHideWord={handleHideWord} 
                   settings={settings}
                   isActive={String(activeWordId) === String(word.id)}
+                  onPlaybackEnd={scrollToNext}
                 />
               </div>
             ))}
