@@ -62,6 +62,9 @@ const speakUtterance = (text, lang, rate) => {
   });
 };
 
+// 待機用ユーティリティ
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // --- プレイリスト追加ボトムシート ---
 const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlistAssignments, onToggleAssignment, onCreatePlaylist, themeKey }) => {
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -358,15 +361,27 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
   );
 };
 
-// --- 単語カード (自動読み上げ対応) ---
+// --- 単語カード (自動読み上げ・表示同期対応) ---
 const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive, onPlaybackEnd }) => {
   const { revealSpeed, theme, autoSpeak, speechRate, autoScroll, textAnimation } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
   
+  // 0: Initial (EN Only), 1: Show JA, 2: Show Ex
+  const [revealStage, setRevealStage] = useState(0);
+  
   const isSpeakingRef = useRef(false);
 
-  // 連続再生実行関数
+  // 画面から消えたらリセット
+  useEffect(() => {
+    if (!isActive) {
+      setRevealStage(0);
+      window.speechSynthesis.cancel();
+      isSpeakingRef.current = false;
+    }
+  }, [isActive]);
+
+  // 連続再生実行関数 (同期型)
   const playSequence = async () => {
     if (!window.speechSynthesis) return;
     if (isSpeakingRef.current) return; 
@@ -375,37 +390,69 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     window.speechSynthesis.cancel(); 
 
     try {
-      await speakUtterance(word.en, 'en-US', speechRate);
-      if(!isSpeakingRef.current) return;
-      await speakUtterance(word.ja, 'ja-JP', speechRate);
-      if(!isSpeakingRef.current) return;
-      await speakUtterance(word.exEn, 'en-US', speechRate);
-      if(!isSpeakingRef.current) return;
-      await speakUtterance(word.exJa, 'ja-JP', speechRate);
+      // 1. 英単語 読み上げ
+      if (autoSpeak) await speakUtterance(word.en, 'en-US', speechRate);
+      if (!isSpeakingRef.current) return;
+
+      // 2. 待機 (Reveal Speed)
+      if (autoSpeak) {
+        // オートの場合は待機してから表示
+        await wait(revealSpeed * 1000);
+        if (!isSpeakingRef.current) return;
+      } else {
+        // オートでない場合も、isActiveになったらこの関数は呼ばれるが、
+        // autoSpeak=falseのときのロジックはuseEffect側で制御すべきか？
+        // ここでは「手動再生」または「オート」の流れ
+      }
+
+      // 3. 日本語 表示
+      setRevealStage(1);
+
+      // 4. 日本語 読み上げ
+      if (autoSpeak) {
+         await speakUtterance(word.ja, 'ja-JP', speechRate);
+         if (!isSpeakingRef.current) return;
+      }
+
+      // 5. 例文 表示
+      setRevealStage(2);
+
+      // 6. 例文(英) 読み上げ
+      if (autoSpeak) {
+        await speakUtterance(word.exEn, 'en-US', speechRate);
+        if (!isSpeakingRef.current) return;
+
+        // 7. 例文(日) 読み上げ
+        await speakUtterance(word.exJa, 'ja-JP', speechRate);
+      }
       
     } catch (e) {
       console.error(e);
     } finally {
       if(isSpeakingRef.current) {
-        if(autoScroll) onPlaybackEnd();
+        if(autoScroll && autoSpeak) onPlaybackEnd();
         isSpeakingRef.current = false;
       }
     }
   };
 
   useEffect(() => {
-    if (isActive && autoSpeak) {
-      const timer = setTimeout(() => {
-        playSequence();
-      }, 500);
-      
-      return () => {
-        clearTimeout(timer);
-        isSpeakingRef.current = false;
-        window.speechSynthesis.cancel();
-      };
+    if (isActive) {
+      if (autoSpeak) {
+        // オート再生: 少し遅延させてシーケンス開始
+        const timer = setTimeout(() => {
+          playSequence();
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+         // オートオフ: RevealSpeed分待ってすべて表示
+         const timer = setTimeout(() => {
+             setRevealStage(2);
+         }, revealSpeed * 1000);
+         return () => clearTimeout(timer);
+      }
     }
-  }, [isActive, word.id, autoSpeak]); 
+  }, [isActive, word.id, autoSpeak]); // Settingsが変わってもリセットしないよう依存減らす
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -413,13 +460,19 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   };
 
   const handleManualSpeak = () => {
+    // 手動再生時は最初からシーケンスをやり直す
+    setRevealStage(0);
     isSpeakingRef.current = false; 
-    playSequence();
+    setTimeout(() => playSequence(), 100);
   };
 
-  const revealVariants = { 
+  // アニメーション (Stageに基づいて制御)
+  const showJa = revealStage >= 1;
+  const showEx = revealStage >= 2;
+
+  const revealAnim = { 
     hidden: { opacity: textAnimation ? 0 : 1, y: textAnimation ? 10 : 0 }, 
-    visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: textAnimation ? 0.4 : 0 } } 
+    visible: { opacity: 1, y: 0, transition: { duration: textAnimation ? 0.4 : 0 } } 
   };
 
   if (isHiding) {
@@ -436,16 +489,32 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
       <div className="z-10 flex flex-col items-center w-full px-4 text-center">
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 0.3 }} viewport={{ once: true }} className={`mb-4 px-3 py-1 text-xs font-bold border rounded-full uppercase tracking-wider ${t.badge}`}>{word.pos}</motion.div>
         <motion.h2 initial={{ scale: 0.95, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }} viewport={{ once: true }} className={`text-6xl md:text-7xl font-medium tracking-tight mb-2 ${t.textMain} drop-shadow-lg`}>{word.en}</motion.h2>
+        
+        {/* Japanese Translation Area */}
         <div className="h-16 flex items-center justify-center">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ amount: 0.5, once: false }} variants={revealVariants}><p className={`text-2xl font-bold ${t.textMain} drop-shadow-md`}>{word.ja}</p></motion.div>
+          <motion.div 
+            initial="hidden" 
+            animate={showJa ? "visible" : "hidden"} 
+            variants={revealAnim}
+          >
+            <p className={`text-2xl font-bold ${t.textMain} drop-shadow-md`}>{word.ja}</p>
+          </motion.div>
         </div>
+
+        {/* Examples Area */}
         <div className="absolute bottom-24 w-full px-6 max-w-md">
-           <motion.div initial="hidden" whileInView="visible" viewport={{ amount: 0.5, once: false }} variants={revealVariants} className={`p-4 rounded-xl border backdrop-blur-sm ${t.isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}>
+           <motion.div 
+             initial="hidden" 
+             animate={showEx ? "visible" : "hidden"} 
+             variants={revealAnim} 
+             className={`p-4 rounded-xl border backdrop-blur-sm ${t.isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
+            >
             <p className={`text-lg font-medium leading-snug mb-2 ${t.textMain}`}>"{word.exEn}"</p>
             <p className={`text-sm ${t.textSub}`}>{word.exJa}</p>
           </motion.div>
         </div>
       </div>
+
       <div className="absolute right-4 bottom-48 flex flex-col items-center gap-6 z-20">
         <button onClick={() => onToggleSave(word.id)} className="group flex flex-col items-center gap-1 cursor-pointer">
           <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} ${isSaved ? 'ring-2 ring-rose-500 bg-rose-500/10' : ''}`}>
