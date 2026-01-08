@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, VolumeX } from 'lucide-react';
 
 // --- 初期データ ---
 const INITIAL_SOURCE_ID = 'sample-source';
@@ -33,15 +33,39 @@ const shuffleArray = (array) => {
 };
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-const SAMPLE_JSON_FORMAT = `[
-  {
-    "en": "example",
-    "pos": "名詞",
-    "ja": "例",
-    "exEn": "This is an example.",
-    "exJa": "これは例です。"
-  }
-]`;
+const SAMPLE_JSON_FORMAT = `[{ "en": "apple", "ja": "りんご", "pos": "名詞", "exEn": "I like apples.", "exJa": "りんごが好き。" }]`;
+
+// 音声合成ユーティリティ
+const speakText = (text, lang = 'en-US') => {
+  if (!window.speechSynthesis) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.rate = 1.0; 
+  window.speechSynthesis.speak(utterance);
+};
+
+// 連続再生用
+const playWordSequence = (word) => {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel(); // 前の音声をキャンセル
+
+  const speak = (text, lang) => {
+    return new Promise((resolve) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      u.onend = resolve;
+      window.speechSynthesis.speak(u);
+    });
+  };
+
+  // 非同期で順番に再生
+  (async () => {
+    await speak(word.en, 'en-US'); // 英語単語
+    await speak(word.ja, 'ja-JP'); // 日本語訳
+    await speak(word.exEn, 'en-US'); // 英語例文
+  })();
+};
+
 
 // --- プレイリスト追加ボトムシート ---
 const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlistAssignments, onToggleAssignment, onCreatePlaylist, themeKey }) => {
@@ -162,16 +186,24 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                   <label className="flex justify-between items-center mb-2 font-medium"><span className="flex items-center gap-2 text-sm opacity-70"><Clock size={14} /> Speed</span><span className="text-sm font-mono">{settings.revealSpeed}s</span></label>
                   <input type="range" min="0" max="3.0" step="0.1" value={settings.revealSpeed} onChange={(e) => updateSettings({ revealSpeed: parseFloat(e.target.value) })} className="w-full h-1.5 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                 </div>
+                {/* シャッフル切り替え */}
                 <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <Shuffle size={18} className="opacity-70" />
                     <span className="text-sm font-bold">Shuffle Words</span>
                   </div>
-                  <button 
-                    onClick={() => updateSettings({ isShuffle: !settings.isShuffle })}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.isShuffle ? 'bg-indigo-500' : 'bg-gray-500/30'}`}
-                  >
+                  <button onClick={() => updateSettings({ isShuffle: !settings.isShuffle })} className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.isShuffle ? 'bg-indigo-500' : 'bg-gray-500/30'}`}>
                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.isShuffle ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                {/* 自動読み上げ切り替え */}
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <Volume2 size={18} className="opacity-70" />
+                    <span className="text-sm font-bold">Auto-Speak</span>
+                  </div>
+                  <button onClick={() => updateSettings({ autoSpeak: !settings.autoSpeak })} className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.autoSpeak ? 'bg-indigo-500' : 'bg-gray-500/30'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.autoSpeak ? 'translate-x-6' : 'translate-x-0'}`} />
                   </button>
                 </div>
               </div>
@@ -197,7 +229,6 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                 <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                 {importStatus && <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${importStatus.includes('Error') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}><AlertCircle size={14} /> {importStatus}</div>}
                 
-                {/* 復活させたJSONサンプル表示部分 */}
                 <div className="pt-4 border-t border-gray-500/20">
                     <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold opacity-50">JSON FORMAT SAMPLE</span>
@@ -249,37 +280,41 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
   );
 };
 
-// --- 単語カード (アニメーション修正) ---
-const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings }) => {
-  const { revealSpeed, theme } = settings;
+// --- 単語カード (自動読み上げ対応) ---
+const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive }) => {
+  const { revealSpeed, theme, autoSpeak } = settings;
   const t = THEMES[theme] || THEMES.stylish;
-  
-  // 非表示時のローカルアニメーションステート
   const [isHiding, setIsHiding] = useState(false);
 
+  // 画面に表示されたら読み上げ（isActiveがtrueになった時）
+  useEffect(() => {
+    if (isActive && autoSpeak) {
+      // 少しだけ待ってから再生（スワイプの完了を待つ感覚）
+      const timer = setTimeout(() => {
+        playWordSequence(word);
+      }, 500);
+      return () => {
+        clearTimeout(timer);
+        window.speechSynthesis.cancel(); // 画面から消えたら停止
+      };
+    }
+  }, [isActive, autoSpeak, word]);
+
   const handleHideClick = () => {
-    setIsHiding(true); // アニメーション開始
-    // アニメーション完了後に実際にデータを更新
-    setTimeout(() => {
-      onHideWord(word.id);
-    }, 400); // 0.4s duration
+    setIsHiding(true);
+    setTimeout(() => { onHideWord(word.id); }, 400);
+  };
+
+  const handleManualSpeak = () => {
+    playWordSequence(word);
   };
 
   const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
 
-  // 画面から消えるアニメーション
   if (isHiding) {
     return (
       <div className={`h-[100dvh] w-full flex-shrink-0 flex items-center justify-center transition-all duration-500 ease-in-out bg-black`}>
-        <motion.div 
-          initial={{ scale: 1, opacity: 1 }}
-          animate={{ scale: 0.8, opacity: 0, y: -50 }}
-          transition={{ duration: 0.4 }}
-          className="text-white font-bold flex flex-col items-center gap-2"
-        >
-          <EyeOff size={40} className="text-indigo-400" />
-          <span>Hiding...</span>
-        </motion.div>
+        <motion.div initial={{ scale: 1, opacity: 1 }} animate={{ scale: 0.8, opacity: 0, y: -50 }} transition={{ duration: 0.4 }} className="text-white font-bold flex flex-col items-center gap-2"><EyeOff size={40} className="text-indigo-400" /><span>Hiding...</span></motion.div>
       </div>
     );
   }
@@ -313,7 +348,15 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
           </div>
           <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Add</span>
         </button>
-        {/* Hide Button (No Confirm, Just Action) */}
+        
+        {/* 手動再生ボタン */}
+        <button onClick={handleManualSpeak} className="group flex flex-col items-center gap-1 cursor-pointer">
+          <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} hover:bg-indigo-500/20`}>
+            <Volume2 size={24} className={`transition-all duration-300 ${t.isDark ? 'text-white' : 'text-slate-700'}`} />
+          </div>
+          <span className={`text-[10px] font-bold drop-shadow-md ${t.textSub}`}>Speak</span>
+        </button>
+
         <button onClick={handleHideClick} className="group flex flex-col items-center gap-1 cursor-pointer">
           <div className={`p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${t.buttonBg} hover:bg-gray-500/20`}>
             <EyeOff size={24} className={`transition-all duration-300 ${t.isDark ? 'text-white opacity-50 hover:opacity-100' : 'text-slate-700 opacity-50 hover:opacity-100'}`} />
@@ -379,11 +422,35 @@ const App = () => {
   const [settingsTab, setSettingsTab] = useState('settings');
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
+  
+  // 現在表示中の単語ID（IntersectionObserverで判定）
+  const [activeWordId, setActiveWordId] = useState(null);
+  
   const containerRef = useRef(null);
-  const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true }; });
+  const [settings, setSettings] = useState(() => { const saved = localStorage.getItem('appSettings'); return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false }; });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
+
+  // スクロール検知でアクティブな単語を判定
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.getAttribute('data-id');
+            if(id) setActiveWordId(id);
+          }
+        });
+      },
+      { root: containerRef.current, threshold: 0.6 } // 60%見えたらアクティブとみなす
+    );
+
+    const cards = document.querySelectorAll('.word-card');
+    cards.forEach(card => observer.observe(card));
+
+    return () => observer.disconnect();
+  }, [allWords, activeTab, hiddenIds]); // 単語リストが変わったら再監視
 
   useEffect(() => {
     const savedSources = localStorage.getItem('vocabSources');
@@ -481,7 +548,19 @@ const App = () => {
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
           <>
-            {displayWords.map((word) => <WordCard key={word.id} word={word} isSaved={savedIds.includes(word.id)} onToggleSave={toggleSave} onOpenAddToPlaylist={openAddSheet} onHideWord={handleHideWord} settings={settings} />)}
+            {displayWords.map((word) => (
+              <div key={word.id} data-id={word.id} className="word-card h-[100dvh] w-full snap-start snap-always">
+                <WordCard 
+                  word={word} 
+                  isSaved={savedIds.includes(word.id)} 
+                  onToggleSave={toggleSave} 
+                  onOpenAddToPlaylist={openAddSheet} 
+                  onHideWord={handleHideWord} 
+                  settings={settings}
+                  isActive={String(activeWordId) === String(word.id)}
+                />
+              </div>
+            ))}
             <div className={`h-[30vh] w-full snap-start flex items-center justify-center border-t ${currentTheme.bgClass} ${currentTheme.cardBorder} ${currentTheme.textSub}`}><div className="flex flex-col items-center gap-2"><Sparkles size={20} /><p className="text-xs font-medium uppercase tracking-widest">End of list</p></div></div>
           </>
         ) : (
