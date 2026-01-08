@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, PlayCircle, FastForward } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, FastForward, Zap, FolderCog } from 'lucide-react';
 
 // --- 初期データ ---
 const INITIAL_SOURCE_ID = 'sample-source';
@@ -33,8 +33,6 @@ const shuffleArray = (array) => {
 };
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-
-// 更新されたJSONサンプルフォーマット
 const SAMPLE_JSON_FORMAT = `[
   {
     "en": "example",
@@ -113,21 +111,90 @@ const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlis
   );
 };
 
+// --- 管理画面 (Playlists & Hidden) ---
+const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylist, onDeletePlaylist, hiddenWords, onUnhideWord }) => {
+  const [activeTab, setActiveTab] = useState('playlists');
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  
+  const t = THEMES[settings.theme] || THEMES.stylish;
+  const startEditing = (item) => { setEditingId(item.id); setEditName(item.name); };
+  const saveEditing = () => { if (editName.trim()) onRenamePlaylist(editingId, editName); setEditingId(null); };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" onClick={onClose} />
+           <motion.div 
+             initial={{ x: '100%' }} 
+             animate={{ x: 0 }} 
+             exit={{ x: '100%' }} 
+             transition={{ type: "spring", damping: 25, stiffness: 300 }}
+             className={`fixed inset-y-0 right-0 z-[130] w-full max-w-md shadow-2xl flex flex-col ${t.isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}
+             onClick={e => e.stopPropagation()}
+           >
+             <div className="p-4 pt-12 flex justify-between items-center border-b border-gray-500/10">
+                <h2 className="text-xl font-bold flex items-center gap-2"><FolderCog size={24} /> Manage</h2>
+                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/10 transition-colors"><X size={24} /></button>
+             </div>
+             
+             <div className="flex p-2 gap-2 border-b border-gray-500/10">
+               <button onClick={() => setActiveTab('playlists')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'playlists' ? 'bg-indigo-500 text-white' : 'opacity-50 hover:bg-gray-500/10'}`}>Playlists</button>
+               <button onClick={() => setActiveTab('hidden')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'hidden' ? 'bg-indigo-500 text-white' : 'opacity-50 hover:bg-gray-500/10'}`}>Hidden Words</button>
+             </div>
+
+             <div className="flex-1 overflow-y-auto p-4">
+                {activeTab === 'playlists' && (
+                  <div className="space-y-4">
+                    {playlists.length === 0 && <div className="text-center py-10 opacity-50">No playlists created yet.</div>}
+                    {playlists.map(playlist => (
+                      <div key={playlist.id} className={`flex items-center justify-between p-4 rounded-xl border ${t.isDark ? 'border-gray-700 bg-white/5' : 'border-gray-200 bg-slate-50'}`}>
+                        <div className="flex items-center gap-4 flex-1 overflow-hidden">
+                          <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-500"><ListMusic size={20} /></div>
+                          {editingId === playlist.id ? <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-transparent border-b border-indigo-500 text-lg font-bold w-full focus:outline-none" autoFocus /> : <span className="font-bold text-lg truncate">{playlist.name}</span>}
+                        </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          {editingId === playlist.id ? <button onClick={saveEditing} className="p-2 hover:bg-indigo-500/20 rounded-lg text-indigo-500"><Save size={18} /></button> : <button onClick={() => startEditing(playlist)} className="p-2 hover:bg-gray-500/10 rounded-lg opacity-50 hover:opacity-100"><Edit2 size={18} /></button>}
+                          <button onClick={() => { if(window.confirm('Delete playlist?')) onDeletePlaylist(playlist.id); }} className="p-2 hover:bg-rose-500/20 rounded-lg text-rose-500 opacity-50 hover:opacity-100"><Trash2 size={18} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeTab === 'hidden' && (
+                  <div className="space-y-4">
+                    {hiddenWords.length === 0 && <div className="text-center py-10 opacity-50">No hidden words.</div>}
+                    {hiddenWords.map(word => (
+                      <div key={word.id} className={`flex items-center justify-between p-4 rounded-xl border ${t.isDark ? 'border-gray-700 bg-white/5' : 'border-gray-200 bg-slate-50'}`}>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-bold text-lg">{word.en}</p>
+                          <p className="text-sm opacity-60 truncate">{word.ja}</p>
+                        </div>
+                        <button onClick={() => onUnhideWord(word.id)} className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-2"><RefreshCcw size={16} /> Unhide</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
+           </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+
 // --- 設定モーダル ---
-const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, toggleSourceActive, playlists, onRenamePlaylist, onDeletePlaylist, onImportData, initialTab, hiddenWords, onUnhideWord }) => {
+const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, toggleSourceActive, onImportData, initialTab }) => {
   const [activeTab, setActiveTab] = useState(initialTab || 'settings');
   const [importStatus, setImportStatus] = useState('');
   const [newSourceName, setNewSourceName] = useState('');
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => { if (isOpen && initialTab) setActiveTab(initialTab); }, [isOpen, initialTab]);
   if (!isOpen) return null;
   const t = THEMES[settings.theme] || THEMES.stylish;
-
-  const startEditing = (item) => { setEditingId(item.id); setEditName(item.name); };
-  const saveEditing = () => { if (editName.trim()) onRenamePlaylist(editingId, editName); setEditingId(null); };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -160,7 +227,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors"><X size={18} /></button>
         </div>
         <div className="flex border-b border-gray-500/10 overflow-x-auto">
-          {['settings', 'speed', 'data', 'playlists', 'hidden'].map(tab => (
+          {['settings', 'speed', 'data'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[60px] py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
           ))}
         </div>
@@ -237,6 +304,19 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                 </div>
                  <p className="text-[10px] opacity-50 mt-1">Speed of text-to-speech voice.</p>
               </div>
+
+              {/* Animation Toggle */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <Zap size={18} className="opacity-70" />
+                    <span className="text-sm font-bold">Text Animation</span>
+                  </div>
+                  <button onClick={() => updateSettings({ textAnimation: !settings.textAnimation })} className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.textAnimation ? 'bg-indigo-500' : 'bg-gray-500/30'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.textAnimation ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+              </div>
+              <p className="text-[10px] opacity-50 -mt-6">Toggle fade-in animation for Japanese text.</p>
+
             </div>
           )}
 
@@ -265,45 +345,11 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <span className="text-xs font-bold opacity-50">JSON FORMAT SAMPLE</span>
                     <button onClick={copyFormat} className="text-xs text-indigo-400 hover:underline flex items-center gap-1"><Copy size={10} /> Copy</button>
                     </div>
-                    {/* JSONサンプル表示の修正部分 */}
                     <div className={`p-3 rounded-lg text-[10px] font-mono leading-relaxed opacity-70 overflow-x-auto whitespace-pre ${t.isDark ? 'bg-black/30' : 'bg-slate-100'}`}>
                       {SAMPLE_JSON_FORMAT}
                     </div>
                 </div>
               </div>
-            </div>
-          )}
-          {activeTab === 'playlists' && (
-            <div className="space-y-4">
-              <p className="text-xs opacity-60 mb-2">Manage your custom playlists.</p>
-              {playlists.length === 0 && <p className="text-sm opacity-50 italic">No playlists created yet.</p>}
-              {playlists.map(playlist => (
-                <div key={playlist.id} className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-center gap-3 flex-1 overflow-hidden">
-                    <ListMusic size={18} className="opacity-50" />
-                    {editingId === playlist.id ? <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-transparent border-b border-indigo-500 text-sm font-bold w-full focus:outline-none" autoFocus /> : <span className="font-bold text-sm truncate">{playlist.name}</span>}
-                  </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    {editingId === playlist.id ? <button onClick={saveEditing} className="p-1.5 hover:bg-indigo-500/20 rounded-md text-indigo-500"><Save size={14} /></button> : <button onClick={() => startEditing(playlist)} className="p-1.5 hover:bg-gray-500/10 rounded-md opacity-50 hover:opacity-100"><Edit2 size={14} /></button>}
-                    <button onClick={() => { if(window.confirm('Delete playlist?')) onDeletePlaylist(playlist.id); }} className="p-1.5 hover:bg-rose-500/20 rounded-md text-rose-500 opacity-50 hover:opacity-100"><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {activeTab === 'hidden' && (
-            <div className="space-y-4">
-              <p className="text-xs opacity-60 mb-2">Words you've hidden from the feed.</p>
-              {hiddenWords.length === 0 && <p className="text-sm opacity-50 italic">No hidden words.</p>}
-              {hiddenWords.map(word => (
-                <div key={word.id} className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="font-bold text-sm">{word.en}</p>
-                    <p className="text-xs opacity-60 truncate">{word.ja}</p>
-                  </div>
-                  <button onClick={() => onUnhideWord(word.id)} className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-1"><RefreshCcw size={12} /> Unhide</button>
-                </div>
-              ))}
             </div>
           )}
         </div>
@@ -314,7 +360,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
 
 // --- 単語カード (自動読み上げ対応) ---
 const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive, onPlaybackEnd }) => {
-  const { revealSpeed, theme, autoSpeak, speechRate, autoScroll } = settings;
+  const { revealSpeed, theme, autoSpeak, speechRate, autoScroll, textAnimation } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
   
@@ -329,19 +375,12 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     window.speechSynthesis.cancel(); 
 
     try {
-      // 1. 英単語
       await speakUtterance(word.en, 'en-US', speechRate);
       if(!isSpeakingRef.current) return;
-      
-      // 2. 日本語訳
       await speakUtterance(word.ja, 'ja-JP', speechRate);
       if(!isSpeakingRef.current) return;
-      
-      // 3. 英語例文
       await speakUtterance(word.exEn, 'en-US', speechRate);
       if(!isSpeakingRef.current) return;
-
-      // 4. 日本語例文
       await speakUtterance(word.exJa, 'ja-JP', speechRate);
       
     } catch (e) {
@@ -378,7 +417,11 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     playSequence();
   };
 
-  const revealVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: 0.4 } } };
+  // アニメーションVariants (textAnimation設定で切り替え)
+  const revealVariants = { 
+    hidden: { opacity: textAnimation ? 0 : 1, y: textAnimation ? 10 : 0 }, 
+    visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: textAnimation ? 0.4 : 0 } } 
+  };
 
   if (isHiding) {
     return (
@@ -438,7 +481,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
 };
 
 // --- ヘッダー ---
-const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, playlists }) => {
+const Header = ({ activeTab, onTabChange, savedCount, openSettings, openManagement, themeKey, playlists }) => {
   const t = THEMES[themeKey] || THEMES.stylish;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -473,7 +516,7 @@ const Header = ({ activeTab, onTabChange, savedCount, openSettings, themeKey, pl
           )}
         </AnimatePresence>
       </div>
-      <div className="w-10"></div>
+      <button onClick={openManagement} className={`pointer-events-auto p-3 rounded-full backdrop-blur-md border shadow-lg transition-all ${t.buttonBg} ${t.isDark ? 'text-white border-white/10' : 'text-slate-800 border-black/5'}`}><FolderCog size={20} /></button>
     </div>
   );
 };
@@ -488,6 +531,7 @@ const App = () => {
   const [playlistAssignments, setPlaylistAssignments] = useState({});
   const [activeTab, setActiveTab] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('settings');
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [currentAddWordId, setCurrentAddWordId] = useState(null);
@@ -497,10 +541,11 @@ const App = () => {
   
   const [settings, setSettings] = useState(() => { 
     const saved = localStorage.getItem('appSettings'); 
-    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false }; 
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false, textAnimation: true }; 
   });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
+  const openManagement = () => setIsManagementOpen(true);
   const openAddSheet = (wordId) => { setCurrentAddWordId(wordId); setIsAddSheetOpen(true); };
 
   const scrollToNext = () => {
@@ -619,7 +664,15 @@ const App = () => {
 
   return (
     <div className={`relative w-full h-[100dvh] font-sans overflow-hidden transition-colors duration-500 ${currentTheme.bgClass}`}>
-      <Header activeTab={activeTab} onTabChange={handleTabChange} savedCount={savedIds.length} openSettings={openSettings} themeKey={settings.theme} playlists={playlists} />
+      <Header 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange} 
+        savedCount={savedIds.length} 
+        openSettings={openSettings} 
+        openManagement={openManagement}
+        themeKey={settings.theme} 
+        playlists={playlists} 
+      />
       <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {displayWords.length > 0 ? (
           <>
@@ -648,8 +701,10 @@ const App = () => {
           </div>
         )}
       </div>
+      
       <AnimatePresence>
-        {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} onImportData={handleImportData} hiddenWords={hiddenWordObjects} onUnhideWord={handleUnhideWord} />}
+        {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} onImportData={handleImportData} />}
+        {isManagementOpen && <ManagementPanel isOpen={isManagementOpen} onClose={() => setIsManagementOpen(false)} settings={settings} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} hiddenWords={hiddenWordObjects} onUnhideWord={handleUnhideWord} />}
         {isAddSheetOpen && <AddToPlaylistSheet isOpen={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} playlists={playlists} currentWordId={currentAddWordId} playlistAssignments={playlistAssignments} onToggleAssignment={handleToggleAssignment} onCreatePlaylist={handleCreatePlaylist} themeKey={settings.theme} />}
       </AnimatePresence>
       <style jsx global>{` .hide-scrollbar::-webkit-scrollbar { display: none; } `}</style>
