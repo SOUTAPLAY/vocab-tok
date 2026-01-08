@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, FastForward, Zap, FolderCog } from 'lucide-react';
+import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, FastForward, Zap, FolderCog, Link2, Link2Off } from 'lucide-react';
 
 // --- 初期データ ---
 const INITIAL_SOURCE_ID = 'sample-source';
@@ -47,7 +47,7 @@ const SAMPLE_JSON_FORMAT = `[
 const speakUtterance = (text, lang, rate) => {
   return new Promise((resolve, reject) => {
     if (!window.speechSynthesis) {
-      resolve(); // 読み上げ機能がない場合は即完了
+      resolve();
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
@@ -113,7 +113,6 @@ const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlis
 };
 
 // --- 管理画面 (Playlists & Hidden) ---
-// 注意: アニメーションを機能させるため、常にレンダリングされ、内部のAnimatePresenceで制御する
 const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylist, onDeletePlaylist, hiddenWords, onUnhideWord }) => {
   const [activeTab, setActiveTab] = useState('playlists');
   const [editingId, setEditingId] = useState(null);
@@ -127,7 +126,6 @@ const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylis
     <AnimatePresence>
       {isOpen && (
         <>
-           {/* 背景オーバーレイ */}
            <motion.div 
              key="overlay"
              initial={{ opacity: 0 }} 
@@ -135,9 +133,8 @@ const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylis
              exit={{ opacity: 0 }} 
              transition={{ duration: 0.3 }}
              className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" 
-             onClick={onClose} // 背景クリックで閉じる
+             onClick={onClose}
            />
-           {/* スライドパネル */}
            <motion.div 
              key="panel"
              initial={{ x: '100%' }} 
@@ -145,7 +142,7 @@ const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylis
              exit={{ x: '100%' }} 
              transition={{ type: "spring", damping: 25, stiffness: 200, mass: 0.8 }}
              className={`fixed inset-y-0 right-0 z-[130] w-full max-w-md shadow-2xl flex flex-col ${t.bgClass} ${t.textMain}`}
-             onClick={e => e.stopPropagation()} // パネル内クリックは閉じるのを防ぐ
+             onClick={e => e.stopPropagation()}
            >
              <div className={`p-4 pt-12 flex justify-between items-center border-b ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <h2 className="text-xl font-bold flex items-center gap-2"><FolderCog size={24} /> Manage</h2>
@@ -318,6 +315,18 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                  <p className="text-[10px] opacity-50 mt-1">Speed of text-to-speech voice.</p>
               </div>
 
+              {/* Sync Toggle */}
+              <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    {settings.syncSpeech ? <Link2 size={18} className="opacity-70" /> : <Link2Off size={18} className="opacity-70" />}
+                    <span className="text-sm font-bold">Sync Speech & Reveal</span>
+                  </div>
+                  <button onClick={() => updateSettings({ syncSpeech: !settings.syncSpeech })} className={`w-12 h-6 rounded-full p-1 transition-colors relative ${settings.syncSpeech ? 'bg-indigo-500' : 'bg-gray-500/30'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.syncSpeech ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+              </div>
+              <p className="text-[10px] opacity-50 -mt-6">If ON, waits for speech to finish before showing next text.</p>
+
               {/* Animation Toggle */}
               <div className={`flex items-center justify-between p-3 rounded-xl border ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
@@ -373,7 +382,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
 
 // --- 単語カード (自動読み上げ・表示同期対応) ---
 const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord, settings, isActive, onPlaybackEnd }) => {
-  const { revealSpeed, theme, autoSpeak, speechRate, autoScroll, textAnimation } = settings;
+  const { revealSpeed, theme, autoSpeak, speechRate, autoScroll, textAnimation, syncSpeech } = settings;
   const t = THEMES[theme] || THEMES.stylish;
   const [isHiding, setIsHiding] = useState(false);
   
@@ -391,7 +400,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     }
   }, [isActive]);
 
-  // 連続再生実行関数 (同期型: 最低待機時間保証)
+  // 連続再生実行関数
   const playSequence = async () => {
     if (!window.speechSynthesis) return;
     if (isSpeakingRef.current) return; 
@@ -400,14 +409,20 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     window.speechSynthesis.cancel(); 
 
     try {
-      // 1. 英単語 
-      // 読み上げと待機を並列実行（どちらか遅い方を待つ）
-      if (autoSpeak) {
-        await Promise.all([
-          speakUtterance(word.en, 'en-US', speechRate),
-          wait(revealSpeed * 1000)
-        ]);
+      // 1. 英単語 & 待機
+      if (syncSpeech) {
+        // --- 同期モード: 両方完了するまで待つ ---
+        if (autoSpeak) {
+          await Promise.all([
+            speakUtterance(word.en, 'en-US', speechRate),
+            wait(revealSpeed * 1000)
+          ]);
+        } else {
+          await wait(revealSpeed * 1000);
+        }
       } else {
+        // --- 非同期モード: 読み上げは投げっぱなし、待機のみawait ---
+        if (autoSpeak) speakUtterance(word.en, 'en-US', speechRate); 
         await wait(revealSpeed * 1000);
       }
       
@@ -416,15 +431,18 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
       // 2. 日本語 表示
       setRevealStage(1);
 
-      // 3. 日本語 読み上げ
-      if (autoSpeak) {
-         await Promise.all([
-            speakUtterance(word.ja, 'ja-JP', speechRate),
-            // 次の例文が出るまでの間隔としてここでも待機を入れるか？
-            // 要望は「単語の表示スピード」なので、日本語表示→例文表示の間隔もRevealSpeedにする
-            wait(revealSpeed * 1000)
-         ]);
+      // 3. 日本語 読み上げ & 待機
+      if (syncSpeech) {
+        if (autoSpeak) {
+           await Promise.all([
+              speakUtterance(word.ja, 'ja-JP', speechRate),
+              wait(revealSpeed * 1000)
+           ]);
+        } else {
+           await wait(revealSpeed * 1000);
+        }
       } else {
+         if (autoSpeak) speakUtterance(word.ja, 'ja-JP', speechRate);
          await wait(revealSpeed * 1000);
       }
 
@@ -433,12 +451,14 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
       // 4. 例文 表示
       setRevealStage(2);
 
-      // 5. 例文(英) 読み上げ
+      // 5. 例文 読み上げ
       if (autoSpeak) {
+        // 例文はSyncモードにかかわらず、最後まで読んでからAutoScrollしたい
+        // Sync OFFでも「表示は完了した」後の「スクロール」は音声終了を待ちたいなら await する。
+        // ここでは「Sync OFFなら表示完了＝処理完了」と捉えることもできるが、
+        // 読み上げ途中でスクロールされると切れるので、最後だけは待つのが自然。
         await speakUtterance(word.exEn, 'en-US', speechRate);
         if (!isSpeakingRef.current) return;
-
-        // 6. 例文(日) 読み上げ
         await speakUtterance(word.exJa, 'ja-JP', speechRate);
       }
       
@@ -454,18 +474,14 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
 
   useEffect(() => {
     if (isActive) {
-      // isActiveになったら即座にシーケンス開始（最初のDelayはplaySequence内で制御）
       const timer = setTimeout(() => {
         playSequence();
-      }, 300); // カードスナップの安定待ち
+      }, 300); 
       return () => {
         clearTimeout(timer);
-        // ここでキャンセルしないと高速スクロールで音が重なるが、
-        // 設定変更などでアンマウントされる場合はキャンセルしたくない場合もある
-        // 今回はisActiveがfalseになったら上部のuseEffectでキャンセルしている
       };
     }
-  }, [isActive, word.id, autoSpeak]); 
+  }, [isActive, word.id, autoSpeak, syncSpeech]); // 設定変更で再実行
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -478,22 +494,10 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     setTimeout(() => playSequence(), 100);
   };
 
-  // アニメーション (textAnimation OFFなら duration: 0 で即時表示)
   const showJa = revealStage >= 1;
   const showEx = revealStage >= 2;
 
-  const revealAnim = { 
-    hidden: { opacity: textAnimation ? 0 : 1, y: textAnimation ? 10 : 0 }, 
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { duration: textAnimation ? 0.4 : 0 } // OFFなら即時
-    } 
-  };
-  
-  // TextAnimation OFFの場合、hidden状態は「非表示(opacity:0)」であるべき。
-  // そうしないと最初から見えてしまう。
-  // ただし、duration:0 なので visible になった瞬間にパッと出る。
+  // Text Animation OFFなら duration: 0
   const actualAnim = {
     hidden: { opacity: 0, y: textAnimation ? 10 : 0 },
     visible: { opacity: 1, y: 0, transition: { duration: textAnimation ? 0.4 : 0 } }
@@ -633,7 +637,7 @@ const App = () => {
   
   const [settings, setSettings] = useState(() => { 
     const saved = localStorage.getItem('appSettings'); 
-    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false, textAnimation: true }; 
+    return saved ? JSON.parse(saved) : { revealSpeed: 0.5, theme: 'stylish', isShuffle: true, autoSpeak: false, speechRate: 1.0, autoScroll: false, textAnimation: true, syncSpeech: true }; 
   });
 
   const openSettings = (tab = 'settings') => { setSettingsTab(tab); setIsSettingsOpen(true); };
