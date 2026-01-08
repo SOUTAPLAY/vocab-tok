@@ -131,15 +131,15 @@ const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylis
              animate={{ x: 0 }} 
              exit={{ x: '100%' }} 
              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-             className={`fixed inset-y-0 right-0 z-[130] w-full max-w-md shadow-2xl flex flex-col ${t.isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}
+             className={`fixed inset-y-0 right-0 z-[130] w-full max-w-md shadow-2xl flex flex-col ${t.bgClass} ${t.textMain}`}
              onClick={e => e.stopPropagation()}
            >
-             <div className="p-4 pt-12 flex justify-between items-center border-b border-gray-500/10">
+             <div className={`p-4 pt-12 flex justify-between items-center border-b ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <h2 className="text-xl font-bold flex items-center gap-2"><FolderCog size={24} /> Manage</h2>
                 <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/10 transition-colors"><X size={24} /></button>
              </div>
              
-             <div className="flex p-2 gap-2 border-b border-gray-500/10">
+             <div className={`flex p-2 gap-2 border-b ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                <button onClick={() => setActiveTab('playlists')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'playlists' ? 'bg-indigo-500 text-white' : 'opacity-50 hover:bg-gray-500/10'}`}>Playlists</button>
                <button onClick={() => setActiveTab('hidden')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'hidden' ? 'bg-indigo-500 text-white' : 'opacity-50 hover:bg-gray-500/10'}`}>Hidden Words</button>
              </div>
@@ -221,12 +221,12 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`w-full max-w-sm max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${t.isDark ? 'bg-slate-900 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200'}`} onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-500/10 flex justify-between items-center">
+      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`w-full max-w-sm max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${t.bgClass} ${t.textMain} ${t.isDark ? 'border-slate-800' : 'border-slate-200'}`} onClick={e => e.stopPropagation()}>
+        <div className={`p-4 border-b flex justify-between items-center ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
           <h2 className="font-bold flex items-center gap-2"><Settings size={18} /> Preferences</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors"><X size={18} /></button>
         </div>
-        <div className="flex border-b border-gray-500/10 overflow-x-auto">
+        <div className={`flex border-b overflow-x-auto ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
           {['settings', 'speed', 'data'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[60px] py-3 text-[10px] font-bold uppercase tracking-wide ${activeTab === tab ? 'text-indigo-500 border-b-2 border-indigo-500' : 'opacity-50'}`}>{tab}</button>
           ))}
@@ -417,7 +417,6 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     playSequence();
   };
 
-  // アニメーションVariants (textAnimation設定で切り替え)
   const revealVariants = { 
     hidden: { opacity: textAnimation ? 0 : 1, y: textAnimation ? 10 : 0 }, 
     visible: { opacity: 1, y: 0, transition: { delay: revealSpeed, duration: textAnimation ? 0.4 : 0 } } 
