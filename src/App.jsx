@@ -47,22 +47,20 @@ const SAMPLE_JSON_FORMAT = `[
 const speakUtterance = (text, lang, rate) => {
   return new Promise((resolve, reject) => {
     if (!window.speechSynthesis) {
-      resolve();
+      resolve(); // 読み上げ機能がない場合は即完了
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
     utterance.rate = rate;
     
-    // エラーハンドリングと終了処理
     utterance.onend = () => resolve();
-    utterance.onerror = (e) => resolve(); // エラーでも止まらないようにresolve
+    utterance.onerror = (e) => resolve(); 
 
     window.speechSynthesis.speak(utterance);
   });
 };
 
-// 待機用ユーティリティ
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- プレイリスト追加ボトムシート ---
@@ -115,6 +113,7 @@ const AddToPlaylistSheet = ({ isOpen, onClose, playlists, currentWordId, playlis
 };
 
 // --- 管理画面 (Playlists & Hidden) ---
+// 注意: アニメーションを機能させるため、常にレンダリングされ、内部のAnimatePresenceで制御する
 const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylist, onDeletePlaylist, hiddenWords, onUnhideWord }) => {
   const [activeTab, setActiveTab] = useState('playlists');
   const [editingId, setEditingId] = useState(null);
@@ -128,14 +127,25 @@ const ManagementPanel = ({ isOpen, onClose, settings, playlists, onRenamePlaylis
     <AnimatePresence>
       {isOpen && (
         <>
-           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" onClick={onClose} />
+           {/* 背景オーバーレイ */}
            <motion.div 
+             key="overlay"
+             initial={{ opacity: 0 }} 
+             animate={{ opacity: 1 }} 
+             exit={{ opacity: 0 }} 
+             transition={{ duration: 0.3 }}
+             className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" 
+             onClick={onClose} // 背景クリックで閉じる
+           />
+           {/* スライドパネル */}
+           <motion.div 
+             key="panel"
              initial={{ x: '100%' }} 
              animate={{ x: 0 }} 
              exit={{ x: '100%' }} 
-             transition={{ type: "spring", damping: 25, stiffness: 300 }}
+             transition={{ type: "spring", damping: 25, stiffness: 200, mass: 0.8 }}
              className={`fixed inset-y-0 right-0 z-[130] w-full max-w-md shadow-2xl flex flex-col ${t.bgClass} ${t.textMain}`}
-             onClick={e => e.stopPropagation()}
+             onClick={e => e.stopPropagation()} // パネル内クリックは閉じるのを防ぐ
            >
              <div className={`p-4 pt-12 flex justify-between items-center border-b ${t.isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <h2 className="text-xl font-bold flex items-center gap-2"><FolderCog size={24} /> Manage</h2>
@@ -318,7 +328,7 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settings.textAnimation ? 'translate-x-6' : 'translate-x-0'}`} />
                   </button>
               </div>
-              <p className="text-[10px] opacity-50 -mt-6">Toggle fade-in animation for Japanese text.</p>
+              <p className="text-[10px] opacity-50 -mt-6">If OFF, text appears instantly (but still follows Reveal Speed delay).</p>
 
             </div>
           )}
@@ -381,7 +391,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     }
   }, [isActive]);
 
-  // 連続再生実行関数 (同期型)
+  // 連続再生実行関数 (同期型: 最低待機時間保証)
   const playSequence = async () => {
     if (!window.speechSynthesis) return;
     if (isSpeakingRef.current) return; 
@@ -390,39 +400,45 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
     window.speechSynthesis.cancel(); 
 
     try {
-      // 1. 英単語 読み上げ
-      if (autoSpeak) await speakUtterance(word.en, 'en-US', speechRate);
+      // 1. 英単語 
+      // 読み上げと待機を並列実行（どちらか遅い方を待つ）
+      if (autoSpeak) {
+        await Promise.all([
+          speakUtterance(word.en, 'en-US', speechRate),
+          wait(revealSpeed * 1000)
+        ]);
+      } else {
+        await wait(revealSpeed * 1000);
+      }
+      
       if (!isSpeakingRef.current) return;
 
-      // 2. 待機 (Reveal Speed)
-      if (autoSpeak) {
-        // オートの場合は待機してから表示
-        await wait(revealSpeed * 1000);
-        if (!isSpeakingRef.current) return;
-      } else {
-        // オートでない場合も、isActiveになったらこの関数は呼ばれるが、
-        // autoSpeak=falseのときのロジックはuseEffect側で制御すべきか？
-        // ここでは「手動再生」または「オート」の流れ
-      }
-
-      // 3. 日本語 表示
+      // 2. 日本語 表示
       setRevealStage(1);
 
-      // 4. 日本語 読み上げ
+      // 3. 日本語 読み上げ
       if (autoSpeak) {
-         await speakUtterance(word.ja, 'ja-JP', speechRate);
-         if (!isSpeakingRef.current) return;
+         await Promise.all([
+            speakUtterance(word.ja, 'ja-JP', speechRate),
+            // 次の例文が出るまでの間隔としてここでも待機を入れるか？
+            // 要望は「単語の表示スピード」なので、日本語表示→例文表示の間隔もRevealSpeedにする
+            wait(revealSpeed * 1000)
+         ]);
+      } else {
+         await wait(revealSpeed * 1000);
       }
 
-      // 5. 例文 表示
+      if (!isSpeakingRef.current) return;
+
+      // 4. 例文 表示
       setRevealStage(2);
 
-      // 6. 例文(英) 読み上げ
+      // 5. 例文(英) 読み上げ
       if (autoSpeak) {
         await speakUtterance(word.exEn, 'en-US', speechRate);
         if (!isSpeakingRef.current) return;
 
-        // 7. 例文(日) 読み上げ
+        // 6. 例文(日) 読み上げ
         await speakUtterance(word.exJa, 'ja-JP', speechRate);
       }
       
@@ -438,21 +454,18 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
 
   useEffect(() => {
     if (isActive) {
-      if (autoSpeak) {
-        // オート再生: 少し遅延させてシーケンス開始
-        const timer = setTimeout(() => {
-          playSequence();
-        }, 500);
-        return () => clearTimeout(timer);
-      } else {
-         // オートオフ: RevealSpeed分待ってすべて表示
-         const timer = setTimeout(() => {
-             setRevealStage(2);
-         }, revealSpeed * 1000);
-         return () => clearTimeout(timer);
-      }
+      // isActiveになったら即座にシーケンス開始（最初のDelayはplaySequence内で制御）
+      const timer = setTimeout(() => {
+        playSequence();
+      }, 300); // カードスナップの安定待ち
+      return () => {
+        clearTimeout(timer);
+        // ここでキャンセルしないと高速スクロールで音が重なるが、
+        // 設定変更などでアンマウントされる場合はキャンセルしたくない場合もある
+        // 今回はisActiveがfalseになったら上部のuseEffectでキャンセルしている
+      };
     }
-  }, [isActive, word.id, autoSpeak]); // Settingsが変わってもリセットしないよう依存減らす
+  }, [isActive, word.id, autoSpeak]); 
 
   const handleHideClick = () => {
     setIsHiding(true);
@@ -460,19 +473,30 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
   };
 
   const handleManualSpeak = () => {
-    // 手動再生時は最初からシーケンスをやり直す
     setRevealStage(0);
     isSpeakingRef.current = false; 
     setTimeout(() => playSequence(), 100);
   };
 
-  // アニメーション (Stageに基づいて制御)
+  // アニメーション (textAnimation OFFなら duration: 0 で即時表示)
   const showJa = revealStage >= 1;
   const showEx = revealStage >= 2;
 
   const revealAnim = { 
     hidden: { opacity: textAnimation ? 0 : 1, y: textAnimation ? 10 : 0 }, 
-    visible: { opacity: 1, y: 0, transition: { duration: textAnimation ? 0.4 : 0 } } 
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: textAnimation ? 0.4 : 0 } // OFFなら即時
+    } 
+  };
+  
+  // TextAnimation OFFの場合、hidden状態は「非表示(opacity:0)」であるべき。
+  // そうしないと最初から見えてしまう。
+  // ただし、duration:0 なので visible になった瞬間にパッと出る。
+  const actualAnim = {
+    hidden: { opacity: 0, y: textAnimation ? 10 : 0 },
+    visible: { opacity: 1, y: 0, transition: { duration: textAnimation ? 0.4 : 0 } }
   };
 
   if (isHiding) {
@@ -495,7 +519,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
           <motion.div 
             initial="hidden" 
             animate={showJa ? "visible" : "hidden"} 
-            variants={revealAnim}
+            variants={actualAnim}
           >
             <p className={`text-2xl font-bold ${t.textMain} drop-shadow-md`}>{word.ja}</p>
           </motion.div>
@@ -506,7 +530,7 @@ const WordCard = ({ word, isSaved, onToggleSave, onOpenAddToPlaylist, onHideWord
            <motion.div 
              initial="hidden" 
              animate={showEx ? "visible" : "hidden"} 
-             variants={revealAnim} 
+             variants={actualAnim} 
              className={`p-4 rounded-xl border backdrop-blur-sm ${t.isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}
             >
             <p className={`text-lg font-medium leading-snug mb-2 ${t.textMain}`}>"{word.exEn}"</p>
@@ -770,9 +794,20 @@ const App = () => {
         )}
       </div>
       
+      {/* 修正ポイント: ManagementPanelは常にレンダリングし、内部でAnimatePresenceを使う */}
+      <ManagementPanel 
+        isOpen={isManagementOpen} 
+        onClose={() => setIsManagementOpen(false)} 
+        settings={settings} 
+        playlists={playlists} 
+        onRenamePlaylist={handleRenamePlaylist} 
+        onDeletePlaylist={handleDeletePlaylist} 
+        hiddenWords={hiddenWordObjects} 
+        onUnhideWord={handleUnhideWord} 
+      />
+
       <AnimatePresence>
         {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} settings={settings} updateSettings={updateSettings} sources={sources} toggleSourceActive={toggleSourceActive} onImportData={handleImportData} />}
-        {isManagementOpen && <ManagementPanel isOpen={isManagementOpen} onClose={() => setIsManagementOpen(false)} settings={settings} playlists={playlists} onRenamePlaylist={handleRenamePlaylist} onDeletePlaylist={handleDeletePlaylist} hiddenWords={hiddenWordObjects} onUnhideWord={handleUnhideWord} />}
         {isAddSheetOpen && <AddToPlaylistSheet isOpen={isAddSheetOpen} onClose={() => setIsAddSheetOpen(false)} playlists={playlists} currentWordId={currentAddWordId} playlistAssignments={playlistAssignments} onToggleAssignment={handleToggleAssignment} onCreatePlaylist={handleCreatePlaylist} themeKey={settings.theme} />}
       </AnimatePresence>
       <style jsx global>{` .hide-scrollbar::-webkit-scrollbar { display: none; } `}</style>
