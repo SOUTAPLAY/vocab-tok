@@ -2,19 +2,139 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Settings, X, Clock, Sparkles, FolderOpen, Layers, Palette, Check, Upload, Copy, AlertCircle, Plus, ListPlus, Database, ListMusic, Trash2, Edit2, Save, Square, CheckSquare, Shuffle, EyeOff, RefreshCcw, Volume2, Mic, FastForward, Zap, FolderCog, Link2, Link2Off } from 'lucide-react';
 
-// --- 初期データ ---
-const INITIAL_SOURCE_ID = 'sample-source';
+// --- 初期データ定義 ---
+const INITIAL_SOURCE_ID = 'built-in-academic';
 const INITIAL_SOURCES = [
-  { id: INITIAL_SOURCE_ID, name: 'Sample Words (Built-in)', active: true }
+  { id: INITIAL_SOURCE_ID, name: 'Essential Academic Words', active: true }
 ];
 
-const INITIAL_WORDS = [
-  { id: 1, sourceId: INITIAL_SOURCE_ID, en: "comprehensive", pos: "形容詞", ja: "包括的な、総合的な", exEn: "We need a comprehensive guide.", exJa: "私たちには包括的なガイドが必要です。" },
-  { id: 2, sourceId: INITIAL_SOURCE_ID, en: "innovation", pos: "名詞", ja: "革新、刷新", exEn: "Innovation distinguishes between a leader and a follower.", exJa: "革新はリーダーとフォロワーを区別する。" },
-  { id: 3, sourceId: INITIAL_SOURCE_ID, en: "mandatory", pos: "形容詞", ja: "義務的な、必須の", exEn: "Attendance at the meeting is mandatory.", exJa: "会議への出席は義務です。" },
-  { id: 4, sourceId: INITIAL_SOURCE_ID, en: "subsequent", pos: "形容詞", ja: "その後の、次の", exEn: "Subsequent events proved him wrong.", exJa: "その後の出来事が彼の誤りを証明した。" },
-  { id: 5, sourceId: INITIAL_SOURCE_ID, en: "incentive", pos: "名詞", ja: "動機、報奨金", exEn: "There is no incentive to work harder.", exJa: "もっと一生懸命働く動機がない。" },
+// ユーザー提供の生データ
+const RAW_WORD_LIST = [
+  { "en": "abandon", "pos": "動詞", "ja": "（計画などを）断念する、捨てる", "exEn": "They had to abandon the plan due to lack of funds.", "exJa": "資金不足のため、彼らはその計画を断念しなければならなかった。" },
+  { "en": "abstract", "pos": "形容詞", "ja": "抽象的な", "exEn": "Happiness is an abstract concept.", "exJa": "幸福は抽象的な概念だ。" },
+  { "en": "academic", "pos": "形容詞", "ja": "学術的な、大学の", "exEn": "She has a strong academic background.", "exJa": "彼女にはしっかりとした学術的背景がある。" },
+  { "en": "access", "pos": "名詞", "ja": "接近、利用する権利", "exEn": "Students have free access to the library.", "exJa": "学生は図書館を自由に利用できる。" },
+  { "en": "accommodate", "pos": "動詞", "ja": "収容する、適応させる", "exEn": "The hotel can accommodate up to 500 guests.", "exJa": "そのホテルは最大500人の客を収容できる。" },
+  { "en": "accompany", "pos": "動詞", "ja": "同行する、伴う", "exEn": "Thunder often accompanies lightning.", "exJa": "雷にはしばしば雷鳴が伴う。" },
+  { "en": "accumulate", "pos": "動詞", "ja": "蓄積する", "exEn": "Dust tends to accumulate under the bed.", "exJa": "ベッドの下にはほこりがたまりやすい。" },
+  { "en": "accurate", "pos": "形容詞", "ja": "正確な", "exEn": "We need accurate data to make a decision.", "exJa": "決断を下すには正確なデータが必要だ。" },
+  { "en": "achieve", "pos": "動詞", "ja": "達成する", "exEn": "She worked hard to achieve her goals.", "exJa": "彼女は目標を達成するために懸命に働いた。" },
+  { "en": "acquire", "pos": "動詞", "ja": "習得する、獲得する", "exEn": "He acquired a good knowledge of English.", "exJa": "彼は英語の十分な知識を習得した。" },
+  { "en": "adapt", "pos": "動詞", "ja": "適応する、順応させる", "exEn": "It is important to adapt to new environments.", "exJa": "新しい環境に適応することは重要だ。" },
+  { "en": "adequate", "pos": "形容詞", "ja": "十分な、適切な", "exEn": "The room provides adequate space for three people.", "exJa": "その部屋は3人にとって十分なスペースがある。" },
+  { "en": "adjust", "pos": "動詞", "ja": "調整する、慣れる", "exEn": "You can adjust the height of the chair.", "exJa": "椅子の高さを調整できます。" },
+  { "en": "administration", "pos": "名詞", "ja": "管理、行政、政権", "exEn": "She works in the administration department.", "exJa": "彼女は管理部門で働いている。" },
+  { "en": "advocate", "pos": "動詞", "ja": "提唱する、主張する", "exEn": "The group advocates for human rights.", "exJa": "その団体は人権を主張している。" },
+  { "en": "affect", "pos": "動詞", "ja": "影響を及ぼす", "exEn": "The weather can affect your mood.", "exJa": "天気は気分に影響を及ぼすことがある。" },
+  { "en": "aggregate", "pos": "形容詞", "ja": "総計の、集まった", "exEn": "The aggregate demand for the product is high.", "exJa": "その製品への総需要は高い。" },
+  { "en": "allocate", "pos": "動詞", "ja": "割り当てる、配分する", "exEn": "The government allocated funds for education.", "exJa": "政府は教育に資金を割り当てた。" },
+  { "en": "alter", "pos": "動詞", "ja": "変える、変わる", "exEn": "We had to alter our travel plans.", "exJa": "私たちは旅行計画を変更しなければならなかった。" },
+  { "en": "alternative", "pos": "名詞", "ja": "代わりとなるもの、選択肢", "exEn": "We have no alternative but to leave.", "exJa": "私たちは立ち去る以外に選択肢がない。" },
+  { "en": "ambiguous", "pos": "形容詞", "ja": "あいまいな", "exEn": "His answer was ambiguous.", "exJa": "彼の答えはあいまいであった。" },
+  { "en": "analyze", "pos": "動詞", "ja": "分析する", "exEn": "Scientists analyzed the water samples.", "exJa": "科学者たちは水質サンプルを分析した。" },
+  { "en": "annual", "pos": "形容詞", "ja": "年1回の、毎年の", "exEn": "The company published its annual report.", "exJa": "その会社は年次報告書を発表した。" },
+  { "en": "anticipate", "pos": "動詞", "ja": "予期する、楽しみに待つ", "exEn": "We anticipate a large crowd at the event.", "exJa": "私たちはイベントに大勢の人が来ると予想している。" },
+  { "en": "apparent", "pos": "形容詞", "ja": "明らかな、外見上の", "exEn": "It became apparent that she was right.", "exJa": "彼女が正しいことが明らかになった。" },
+  { "en": "approach", "pos": "名詞", "ja": "取り組み方、接近", "exEn": "We need a new approach to solve this problem.", "exJa": "この問題を解決するには新しい取り組み方が必要だ。" },
+  { "en": "appropriate", "pos": "形容詞", "ja": "適切な", "exEn": "Please wear clothes appropriate for the occasion.", "exJa": "その場にふさわしい服を着てください。" },
+  { "en": "approximate", "pos": "形容詞", "ja": "およその", "exEn": "The approximate cost will be $100.", "exJa": "およその費用は100ドルになるだろう。" },
+  { "en": "arbitrary", "pos": "形容詞", "ja": "恣意的な、勝手な", "exEn": "The decision seemed arbitrary.",
+    "exJa": "その決定は恣意的に思えた。"
+  },
+  { "en": "aspect", "pos": "名詞", "ja": "側面、局面", "exEn": "We must consider every aspect of the situation.", "exJa": "我々は状況のあらゆる側面を考慮しなければならない。" },
+  { "en": "assemble", "pos": "動詞", "ja": "集める、組み立てる", "exEn": "All students were asked to assemble in the hall.", "exJa": "全生徒がホールに集まるよう求められた。" },
+  { "en": "assess", "pos": "動詞", "ja": "評価する、査定する", "exEn": "Tests are used to assess students' progress.", "exJa": "テストは生徒の進歩を評価するために使われる。" },
+  { "en": "assign", "pos": "動詞", "ja": "割り当てる、任命する", "exEn": "The teacher assigned homework to the class.", "exJa": "先生はクラスに宿題を割り当てた。" },
+  { "en": "assist", "pos": "動詞", "ja": "支援する、手伝う", "exEn": "This device assists people with hearing loss.", "exJa": "この装置は難聴の人々を支援する。" },
+  { "en": "assume", "pos": "動詞", "ja": "（証拠はないが）〜だと思う、仮定する", "exEn": "I assume that you are busy.", "exJa": "あなたは忙しいのだと思います。" },
+  { "en": "assure", "pos": "動詞", "ja": "保証する、安心させる", "exEn": "I assure you that everything will be fine.", "exJa": "すべてうまくいくと保証します。" },
+  { "en": "attach", "pos": "動詞", "ja": "取り付ける、添付する", "exEn": "Please attach a photo to your application.", "exJa": "申込書に写真を添付してください。" },
+  { "en": "attain", "pos": "動詞", "ja": "達成する、到達する", "exEn": "He attained the highest rank in the organization.", "exJa": "彼は組織で最高位に到達した。" },
+  { "en": "attitude", "pos": "名詞", "ja": "態度、考え方", "exEn": "She has a positive attitude towards life.", "exJa": "彼女は人生に対して前向きな態度を持っている。" },
+  { "en": "attribute", "pos": "動詞", "ja": "（結果などを）〜のせいにする、〜のおかげと考える", "exEn": "He attributes his success to hard work.", "exJa": "彼は成功を勤勉のおかげだと考えている。" },
+  { "en": "authority", "pos": "名詞", "ja": "権威、当局", "exEn": "She is an authority on modern art.", "exJa": "彼女は現代美術の権威だ。" },
+  { "en": "available", "pos": "形容詞", "ja": "利用できる、入手可能な", "exEn": "Tickets are still available online.", "exJa": "チケットはまだオンラインで入手可能だ。" },
+  { "en": "aware", "pos": "形容詞", "ja": "気づいている、知っている", "exEn": "I was not aware of the problem.", "exJa": "私はその問題に気づいていなかった。" },
+  { "en": "benefit", "pos": "名詞", "ja": "利益、恩恵", "exEn": "The new policy will bring many benefits.", "exJa": "新しい政策は多くの利益をもたらすだろう。" },
+  { "en": "bias", "pos": "名詞", "ja": "偏見、先入観", "exEn": "We must avoid bias in our research.", "exJa": "私たちは研究において偏見を避けなければならない。" },
+  { "en": "capable", "pos": "形容詞", "ja": "能力がある", "exEn": "She is capable of handling the situation.", "exJa": "彼女はその状況に対処する能力がある。" },
+  { "en": "capacity", "pos": "名詞", "ja": "収容能力、能力", "exEn": "The stadium has a capacity of 50,000.", "exJa": "そのスタジアムは5万人収容できる。" },
+  { "en": "category", "pos": "名詞", "ja": "範疇、カテゴリー", "exEn": "The books are sorted by category.", "exJa": "本はカテゴリー別に分類されている。" },
+  { "en": "cease", "pos": "動詞", "ja": "やめる、終わる", "exEn": "The factory ceased operations last year.", "exJa": "その工場は昨年操業を停止した。" },
+  { "en": "challenge", "pos": "名詞", "ja": "課題、挑戦", "exEn": "Climate change is a global challenge.", "exJa": "気候変動は地球規模の課題だ。" },
+  { "en": "circumstance", "pos": "名詞", "ja": "状況、事情", "exEn": "Under normal circumstances, I would agree.", "exJa": "普通の状況なら、私は同意するだろう。" },
+  { "en": "clarify", "pos": "動詞", "ja": "明確にする", "exEn": "Could you clarify your last point?", "exJa": "最後の点を明確にしていただけますか？" },
+  { "en": "coherence", "pos": "名詞", "ja": "一貫性", "exEn": "The essay lacks coherence.", "exJa": "その小論文は一貫性に欠ける。" },
+  { "en": "coincide", "pos": "動詞", "ja": "同時に起こる、一致する", "exEn": "My vacation coincides with yours.", "exJa": "私の休暇はあなたのと重なっている。" },
+  { "en": "collapse", "pos": "動詞", "ja": "崩壊する、倒れる", "exEn": "The roof collapsed under the weight of the snow.", "exJa": "雪の重みで屋根が崩壊した。" },
+  { "en": "colleague", "pos": "名詞", "ja": "同僚", "exEn": "I had lunch with a colleague.", "exJa": "私は同僚と昼食をとった。" },
+  { "en": "commence", "pos": "動詞", "ja": "開始する", "exEn": "The ceremony will commence at noon.", "exJa": "式典は正午に開始される。" },
+  { "en": "commission", "pos": "名詞", "ja": "委員会、委任", "exEn": "A commission was set up to investigate the incident.", "exJa": "その事件を調査するために委員会が設置された。" },
+  { "en": "commit", "pos": "動詞", "ja": "（罪などを）犯す、委ねる、約束する", "exEn": "He committed a serious error.", "exJa": "彼は重大な過ちを犯した。" },
+  { "en": "commodity", "pos": "名詞", "ja": "商品、産物", "exEn": "Coffee is a valuable commodity.", "exJa": "コーヒーは価値のある商品だ。" },
+  { "en": "communicate", "pos": "動詞", "ja": "伝達する、意思疎通する", "exEn": "We use email to communicate.", "exJa": "私たちは意思疎通にメールを使う。" },
+  { "en": "community", "pos": "名詞", "ja": "地域社会、共同体", "exEn": "He is a respected member of the community.", "exJa": "彼は地域社会の尊敬される一員だ。" },
+  { "en": "compatible", "pos": "形容詞", "ja": "互換性のある、相性が良い", "exEn": "This software is compatible with Mac.", "exJa": "このソフトはMacと互換性がある。" },
+  { "en": "compensate", "pos": "動詞",
+    "ja": "補償する、埋め合わせる", "exEn": "Nothing can compensate for the loss of a loved one.", "exJa": "愛する人を失ったことは何によっても埋め合わせられない。"
+  },
+  { "en": "compile", "pos": "動詞", "ja": "編集する、まとめる", "exEn": "They compiled a list of potential customers.", "exJa": "彼らは見込み客のリストをまとめた。" },
+  { "en": "complement", "pos": "動詞", "ja": "補完する、引き立てる", "exEn": "The wine complements the meal perfectly.", "exJa": "そのワインは食事を完璧に引き立てている。" },
+  { "en": "complex", "pos": "形容詞", "ja": "複雑な", "exEn": "The human brain is extremely complex.", "exJa": "人間の脳は極めて複雑だ。" },
+  { "en": "component", "pos": "名詞", "ja": "構成要素、部品", "exEn": "Trust is a key component of any relationship.", "exJa": "信頼はあらゆる人間関係の重要な構成要素だ。" },
+  { "en": "comprehensive", "pos": "形容詞", "ja": "包括的な、総合的な", "exEn": "We need a comprehensive guide to the city.", "exJa": "私たちはその都市の包括的なガイドが必要だ。" },
+  { "en": "comprise", "pos": "動詞", "ja": "構成する、〜から成る", "exEn": "The team comprises five members.", "exJa": "そのチームは5人のメンバーで構成されている。" },
+  { "en": "concentrate", "pos": "動詞", "ja": "集中する", "exEn": "I can't concentrate with that noise.", "exJa": "その騒音のせいで集中できない。" },
+  { "en": "concept", "pos": "名詞", "ja": "概念、考え", "exEn": "The concept of zero was revolutionary.", "exJa": "ゼロという概念は革命的だった。" },
+  { "en": "conclude", "pos": "動詞", "ja": "結論づける、終える", "exEn": "The report concludes that the economy is improving.", "exJa": "報告書は経済が改善していると結論づけている。" },
+  { "en": "conduct", "pos": "動詞", "ja": "実施する、指揮する", "exEn": "They conducted a survey on sleep habits.", "exJa": "彼らは睡眠習慣に関する調査を実施した。" },
+  { "en": "confirm", "pos": "動詞", "ja": "確認する、裏付ける", "exEn": "Please confirm your reservation by email.", "exJa": "メールで予約を確認してください。" },
+  { "en": "conflict", "pos": "名詞", "ja": "対立、紛争", "exEn": "There is a conflict between the two parties.", "exJa": "二つの党の間には対立がある。" },
+  { "en": "conform", "pos": "動詞", "ja": "従う、順応する", "exEn": "Employees must conform to the safety rules.", "exJa": "従業員は安全規則に従わなければならない。" },
+  { "en": "consent", "pos": "名詞", "ja": "同意、承諾", "exEn": "He gave his consent to the proposal.", "exJa": "彼はその提案に同意を与えた。" },
+  { "en": "consequent", "pos": "形容詞", "ja": "結果として生じる", "exEn": "The heavy rain and consequent flooding caused damage.", "exJa": "大雨とその結果生じた洪水が被害をもたらした。" },
+  { "en": "considerable", "pos": "形容詞", "ja": "かなりの、相当な", "exEn": "She has a considerable amount of money.", "exJa": "彼女はかなりの金額を持っている。" },
+  { "en": "consist", "pos": "動詞", "ja": "〜から成る（of）", "exEn": "The committee consists of ten members.", "exJa": "委員会は10人のメンバーから成る。" },
+  { "en": "constant", "pos": "形容詞", "ja": "絶え間ない、一定の", "exEn": "The machine requires constant maintenance.", "exJa": "その機械は絶え間ないメンテナンスを必要とする。" },
+  { "en": "constitute", "pos": "動詞", "ja": "構成する、〜と見なされる", "exEn": "Twelve months constitute a year.", "exJa": "12ヶ月で1年を構成する。" },
+  { "en": "construct", "pos": "動詞", "ja": "建設する、組み立てる", "exEn": "They plan to construct a new bridge.", "exJa": "彼らは新しい橋を建設する計画だ。" },
+  { "en": "consult", "pos": "動詞", "ja": "相談する、調べる", "exEn": "You should consult a doctor.", "exJa": "医者に相談すべきだ。" },
+  { "en": "consume", "pos": "動詞", "ja": "消費する", "exEn": "This car consumes a lot of fuel.", "exJa": "この車は多くの燃料を消費する。" },
+  { "en": "contemporary", "pos": "形容詞", "ja": "現代の、同時代の", "exEn": "He studies contemporary art.", "exJa": "彼は現代美術を研究している。" },
+  { "en": "context", "pos": "名詞", "ja": "文脈、背景", "exEn": "You need to understand the historical context.", "exJa": "歴史的背景を理解する必要がある。" },
+  { "en": "contract", "pos": "名詞", "ja": "契約", "exEn": "They signed a three-year contract.", "exJa": "彼らは3年契約を結んだ。" },
+  { "en": "contradict", "pos": "動詞", "ja": "矛盾する、否定する", "exEn": "The evidence contradicts his statement.", "exJa": "証拠は彼の供述と矛盾している。" },
+  { "en": "contrary", "pos": "形容詞", "ja": "反対の", "exEn": "Contrary to popular belief, he is shy.", "exJa": "一般に信じられていることとは反対に、彼は内気だ。" },
+  { "en": "contrast", "pos": "名詞", "ja": "対照、相違", "exEn": "There is a sharp contrast between the two colors.", "exJa": "その2色の間には鋭い対照がある。" },
+  { "en": "contribute", "pos": "動詞", "ja": "貢献する、寄付する", "exEn": "She contributed significantly to the project.", "exJa": "彼女はプロジェクトに大いに貢献した。" },
+  { "en": "controversy", "pos": "名詞", "ja": "論争", "exEn": "The new law caused a lot of controversy.", "exJa": "新法は多くの論争を引き起こした。"
+  },
+  { "en": "convene", "pos": "動詞", "ja": "招集する、開催される", "exEn": "The committee will convene next week.", "exJa": "委員会は来週開催される。" },
+  { "en": "convert", "pos": "動詞", "ja": "転換する、変える", "exEn": "The sofa converts into a bed.", "exJa": "そのソファはベッドに変わる。" },
+  { "en": "convince", "pos": "動詞", "ja": "納得させる、確信させる", "exEn": "I tried to convince him to stay.", "exJa": "私は彼にとどまるよう説得しようとした。" },
+  { "en": "cooperate", "pos": "動詞", "ja": "協力する", "exEn": "We need to cooperate with each other.", "exJa": "私たちはお互いに協力する必要がある。" },
+  { "en": "coordinate", "pos": "動詞", "ja": "調整する", "exEn": "She coordinates the events for the company.", "exJa": "彼女は会社のイベントを調整している。" },
+  { "en": "core", "pos": "名詞", "ja": "核心、中心", "exEn": "The core of the problem lies elsewhere.", "exJa": "問題の核心は別のところにある。" },
+  { "en": "corporate", "pos": "形容詞", "ja": "企業の、法人の", "exEn": "He works in corporate finance.", "exJa": "彼は企業財務の仕事をしている。" },
+  { "en": "correspond", "pos": "動詞", "ja": "一致する、文通する", "exEn": "His account corresponds with the police report.", "exJa": "彼の説明は警察の報告書と一致している。" },
+  { "en": "create", "pos": "動詞", "ja": "創造する、引き起こす", "exEn": "The internet created new opportunities.", "exJa": "インターネットは新たな機会を創出した。" },
+  { "en": "criteria", "pos": "名詞", "ja": "基準（criterionの複数形）", "exEn": "What are the criteria for selection?", "exJa": "選考の基準は何ですか？" },
+  { "en": "crucial", "pos": "形容詞", "ja": "決定的な、極めて重要な", "exEn": "Water is crucial for survival.", "exJa": "水は生存にとって極めて重要だ。" },
+  { "en": "culture", "pos": "名詞", "ja": "文化", "exEn": "I am interested in Japanese culture.", "exJa": "私は日本文化に興味がある。" },
+  { "en": "currency", "pos": "名詞", "ja": "通貨", "exEn": "The euro is the currency used in France.", "exJa": "ユーロはフランスで使われている通貨だ。" },
+  { "en": "cycle", "pos": "名詞", "ja": "循環、周期", "exEn": "The life cycle of a butterfly is fascinating.", "exJa": "蝶のライフサイクルは興味深い。" },
+  { "en": "data", "pos": "名詞", "ja": "データ、資料", "exEn": "The data shows a clear trend.", "exJa": "データは明確な傾向を示している。" },
+  { "en": "debate", "pos": "名詞", "ja": "討論、論争", "exEn": "There was a heated debate about tax reform.", "exJa": "税制改革について激しい討論があった。" },
+  { "en": "decade", "pos": "名詞", "ja": "10年間", "exEn": "He has lived here for a decade.", "exJa": "彼はここに10年間住んでいる。" },
+  { "en": "decline", "pos": "動詞", "ja": "減少する、断る", "exEn": "Profits declined by 10% this year.", "exJa": "利益は今年10%減少した。" }
 ];
+
+// IDとSourceIDを付与
+const INITIAL_WORDS = RAW_WORD_LIST.map((word, index) => ({
+  ...word,
+  id: `builtin-${index + 1}`,
+  sourceId: INITIAL_SOURCE_ID
+}));
 
 const THEMES = {
   stylish: { id: 'stylish', label: 'Midnight Blur', bgClass: 'bg-slate-950', textMain: 'text-white', textSub: 'text-slate-400', accent: 'text-indigo-400', badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30', cardBorder: 'border-slate-900', buttonBg: 'bg-slate-800/40', isDark: true, hasEffects: true },
@@ -228,6 +348,13 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
     event.target.value = '';
   };
   const copyFormat = () => { navigator.clipboard.writeText(SAMPLE_JSON_FORMAT); setImportStatus('Copied!'); setTimeout(() => setImportStatus(''), 2000); };
+  const clearData = () => {
+    if(window.confirm('Are you sure you want to reset all data to defaults? This cannot be undone.')) {
+      localStorage.removeItem('myVocabularyData');
+      localStorage.removeItem('vocabSources');
+      window.location.reload();
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -370,6 +497,10 @@ const SettingsModal = ({ isOpen, onClose, settings, updateSettings, sources, tog
                     <div className={`p-3 rounded-lg text-[10px] font-mono leading-relaxed opacity-70 overflow-x-auto whitespace-pre ${t.isDark ? 'bg-black/30' : 'bg-slate-100'}`}>
                       {SAMPLE_JSON_FORMAT}
                     </div>
+                </div>
+                
+                <div className="pt-4 border-t border-gray-500/20">
+                   <button onClick={clearData} className="w-full py-3 rounded-xl border border-rose-500/30 text-rose-500 text-xs font-bold hover:bg-rose-500/10 transition-colors">Reset / Clear All Data</button>
                 </div>
               </div>
             </div>
@@ -652,8 +783,20 @@ const App = () => {
 
   useEffect(() => {
     const savedSources = localStorage.getItem('vocabSources');
-    if (savedSources) setSources(JSON.parse(savedSources));
-    else { setSources(INITIAL_SOURCES); localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES)); }
+    // 初期データソースが「Sample」のまま、または古い場合、新しいAcademicに強制更新するロジック（簡易的）
+    if (savedSources) {
+       const parsed = JSON.parse(savedSources);
+       // もしIDが古いサンプルIDなら上書き
+       if(parsed.some(s => s.id === 'sample-source')) {
+          setSources(INITIAL_SOURCES);
+          localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES));
+       } else {
+          setSources(parsed);
+       }
+    } else { 
+      setSources(INITIAL_SOURCES); 
+      localStorage.setItem('vocabSources', JSON.stringify(INITIAL_SOURCES)); 
+    }
     
     const savedPlaylists = localStorage.getItem('vocabPlaylists');
     if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
@@ -662,8 +805,15 @@ const App = () => {
     const savedWords = localStorage.getItem('myVocabularyData');
     if (savedWords) {
       const parsedWords = JSON.parse(savedWords);
-      const fixedWords = parsedWords.map(w => ({ ...w, sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID }));
-      setAllWords(fixedWords);
+      // 古いサンプルデータ（数が少ない）場合、新しいデータで上書きしてあげる
+      if(parsedWords.length < 10 && parsedWords[0].id === 1) {
+         const initial = shuffleArray(INITIAL_WORDS);
+         setAllWords(initial);
+         localStorage.setItem('myVocabularyData', JSON.stringify(initial));
+      } else {
+         const fixedWords = parsedWords.map(w => ({ ...w, sourceId: w.sourceId || w.folderId || INITIAL_SOURCE_ID }));
+         setAllWords(fixedWords);
+      }
     } else { 
       const initial = shuffleArray(INITIAL_WORDS); 
       setAllWords(initial); 
