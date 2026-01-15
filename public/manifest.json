@@ -1,25 +1,25 @@
 {
-  "background_color": "#ffffff",
-  "dir": "ltr",
+  "name": "vocab-tok",
+  "short_name": "vocab-tok",
+  "start_url": "/",
   "display": "standalone",
-  "name": "vocab-tok.vercel",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "dir": "ltr",
   "orientation": "any",
   "scope": "/",
-  "short_name": "vocab-tok.vercel",
-  "start_url": "/",
-  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "https://vocab-tok.vercel.app/vocab-icon.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "isSquare": false,
-      "isPng": true,
-      "isWebp": false,
-      "isJpg": false,
-      "width": 0,
-      "is512x512": false,
-      "is256x256": false,
-      "is192x192": false
+      "purpose": "any"
+    },
+    {
+      "src": "https://vocab-tok.vercel.app/vocab-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
