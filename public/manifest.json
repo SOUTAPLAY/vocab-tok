@@ -10,10 +10,10 @@
   "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "https://vocab-tok.vercel.app/vite.svg",
-      "type": "image/svg+xml",
+      "src": "https://vocab-tok.vercel.app/vocab-icon.png",
+      "type": "image/png",
       "isSquare": false,
-      "isPng": false,
+      "isPng": true,
       "isWebp": false,
       "isJpg": false,
       "width": 0,
